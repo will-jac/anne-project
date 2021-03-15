@@ -5,9 +5,6 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import L2
 
 def add_layer(model, shape, name, activation, use_bias=True, L2_reg=None, dropout=None, layer=Dense):
-    
-    print('adding layer:', name, shape)
-
     if L2_reg is not None:
         model.add(layer(shape, name=name, use_bias=use_bias, kernel_regularizer=L2(L2_reg)))
     else:
@@ -97,15 +94,18 @@ def pretrain_dae_nn(train_data, validation_data, hidden_shape_list, n_output,
     # remove the output layer
     model = Sequential()
     model.add(InputLayer(input_shape=train_data.X.shape[1]))
+    # TODO: dropout for the input layer ? Probably not
+
     for layer in base_model.layers[:-1]: # up to, but not including, the last layer
         model.add(layer)
+        # add dropout between each layers
+        if dropout is not None:
+            model.add(Dropout(dropout))
 
     add_layer(model, n_output, 'output', activation=out_activation, L2_reg=L2_reg)
 
     # unfreeze everything
-    model.trainable = True
-
-    # TODO: add dropout between each layers
+    model.trainable = True    
 
     model.compile(loss=loss, metrics=metrics, optimizer=opt)
     
