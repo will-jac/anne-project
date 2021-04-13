@@ -14,42 +14,7 @@ rng = np.random.default_rng()
 UNLABELED = None
 
 def pl_loss(unlabeled=-1, num_classes=1, alpha=0.1):
-    '''
-    Custom loss function for pseudo-labeling
 
-    In general, I believe that this is only well-defined when y is 1D and one-hot encoded
-
-    unlabeled = scalar of what value has been assigned to the unlabled samples
-    num_classes = number of classes of Y
-    alpha = alpha term of conditional cross-entropy
-
-    Main limitation: cannot schedule alpha (yet!) - would a callback work?
-    '''
-    def loss(y_true, y_pred):
-        # tf.print('pl_loss:', y_true, y_pred)
-
-        y_pl = K.one_hot(K.argmax(y_pred, axis=1), num_classes)
-        y_pl = tf.cast(y_pl, y_true.dtype)
-
-        index = y_true == unlabeled
-
-        y_pl = tf.where(index, y_pl, y_true)
-
-        index = K.all(index, axis=1)
-        coef_arr = tf.where(index, alpha, 1.0)
-        # tf.print('coef_arr:', coef_arr)
-        # tf.print('labeled:', y_pl[labeled_index], y_pred[labeled_index])
-        # tf.print('unlabeled:', y_pl[unlabeled_index], y_pred[unlabeled_index])
-
-        # compute the loss labeled and pl seperately so we can apply alpha
-        loss = keras.losses.binary_crossentropy(y_true, y_pred)
-
-        # loss = keras.losses.binary_crossentropy(y_pl, y_pred)
-
-        # tf.print('loss, coef_loss:', loss, coef_arr * loss)
-        # tf.print('normal loss:', keras.losses.binary_crossentropy(y_true, y_pred))
-
-        return coef_arr * loss
 
     return loss
 
@@ -79,13 +44,55 @@ class PseudoLabels():
         self.activation = activation
         self.out_activation = out_activation
 
-        self.epochs = 1000
+        self.epochs = 100
 
         self.callbacks = [
             keras.callbacks.EarlyStopping(patience=500, restore_best_weights=True, min_delta=0.01)
         ]
 
         self.name='pseudo_labels'
+
+        self.alpha = 0.1
+        self.out_size = out_size
+        self.unlabeled = -1
+
+        
+    def pl_loss(self, y_true, y_pred):
+        '''
+        Custom loss function for pseudo-labeling
+
+        In general, I believe that this is only well-defined when y is 1D and one-hot encoded
+
+        unlabeled = scalar of what value has been assigned to the unlabled samples
+        num_classes = number of classes of Y
+        alpha = alpha term of conditional cross-entropy
+
+        Main limitation: cannot schedule alpha (yet!) - would a callback work?
+        '''
+        # tf.print('pl_loss:', y_true, y_pred)
+
+        y_pl = K.one_hot(K.argmax(y_pred, axis=1), self.out_size)
+        y_pl = tf.cast(y_pl, y_true.dtype)
+
+        index = y_true == self.unlabeled
+
+        y_pl = tf.where(index, y_pl, y_true)
+
+        index = K.all(index, axis=1)
+        coef_arr = tf.where(index, self.alpha, 1.0)
+        # tf.print('coef_arr:', coef_arr)
+        # tf.print('labeled:', y_pl[labeled_index], y_pred[labeled_index])
+        # tf.print('unlabeled:', y_pl[unlabeled_index], y_pred[unlabeled_index])
+
+        # compute the loss labeled and pl seperately so we can apply alpha
+        loss = keras.losses.binary_crossentropy(y_true, y_pred)
+
+        # loss = keras.losses.binary_crossentropy(y_pl, y_pred)
+
+        # tf.print('loss, coef_loss:', loss, coef_arr * loss)
+        # tf.print('normal loss:', keras.losses.binary_crossentropy(y_true, y_pred))
+
+        return coef_arr * loss
 
     def prelabel_data(self, data):
         if data.y.shape[1] is None:
@@ -128,15 +135,15 @@ class PseudoLabels():
             print('building model with dae train', dae_train.X.shape, dae_train.y.shape)
 
             self.model = pretrain_dae_nn(dae_train, dae_valid, self.hidden, train_data.y.shape[1],
-                    epochs=self.epochs, callbacks=self.callbacks,
-                    loss=pl_loss(num_classes=train_data.y.shape[1]),
                     lrate=self.lrate, activation=self.activation, out_activation=self.out_activation,
+                    loss=self.pl_loss, pretrain_loss='mse',
+                    epochs=int(self.epochs / 10), callbacks=self.callbacks,
                     verbose=True)
         else:
             self.model = build_nn(train_data.X.shape[1], self.hidden, train_data.y.shape[1],
                     lrate=self.lrate, activation=self.activation, out_activation=self.out_activation,
-                    dropout=self.dropout,
-                    loss=pl_loss(num_classes=train_data.y.shape[1]))
+                    loss=self.pl_loss,
+                    dropout=self.dropout)
 
         print('final model:')
         self.model.summary()
