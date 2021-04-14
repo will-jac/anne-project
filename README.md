@@ -11,6 +11,10 @@ our data consists of labeled + unlabeled data, so having easy access to this is 
 2. 4/12 update: I added a running utility, using argparse. Just put your model in models.py and any tests in tests.py and it should work - you may need to add additional parameters though.
 3. 4/12 update: I changed the Data tuple to provide X, y, U directly, because it's just easier to work with
 
+## Notes for Jack
+1.  4/14 Update: I have updated the repository with my work in progress for tempeoral ensembling original source code modifications and the data importing and cleaning for the CIFAR-10 dataset. 
+I will be putting in more work tomorrow, hopefully getting a working model so that we can move to the testing stage of our project. :)
+
 ## TODO
 
 * more robust model saving / history
