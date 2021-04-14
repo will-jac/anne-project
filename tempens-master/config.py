@@ -50,7 +50,8 @@ result_dir = (
 # Theano configuration.
 #----------------------------------------------------------------------------
 
-theano_flags = "device=gpu,floatX=float32,assert_no_cpu_op=warn,allow_gc=False,nvcc.fastmath=True,dnn.conv.algo_fwd=small,dnn.conv.algo_bwd_filter=deterministic,dnn.conv.algo_bwd_data=deterministic,print_active_device=0"
+#theano_flags = "device=gpu,floatX=float32,assert_no_cpu_op=warn,allow_gc=False,nvcc.fastmath=True,dnn.conv.algo_fwd=small,dnn.conv.algo_bwd_filter=deterministic,dnn.conv.algo_bwd_data=deterministic,print_active_device=0"
+theano_flags = ""
 
 #----------------------------------------------------------------------------
 # Training defaults.

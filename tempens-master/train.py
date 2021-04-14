@@ -80,8 +80,8 @@ import report, thread_utils, time
 import numpy as np
 np.random.seed(config.random_seed)
     
-print "CUDA_VISIBLE_DEVICES=" + os.environ['CUDA_VISIBLE_DEVICES']
-print "THEANO_FLAGS=" + os.environ['THEANO_FLAGS']
+print("CUDA_VISIBLE_DEVICES=" + os.environ['CUDA_VISIBLE_DEVICES'])
+print("THEANO_FLAGS=" + os.environ['THEANO_FLAGS'])
 import theano
 from theano import tensor as T
 import lasagne
@@ -110,7 +110,7 @@ def save_image(filename, img):
 ###################################################################################################
 
 def load_cifar_10():
-    import cPickle
+    import _pickle as cPickle
     def load_cifar_batches(filenames):
         if isinstance(filenames, str):
             filenames = [filenames]
@@ -129,7 +129,7 @@ def load_cifar_10():
     return X_train, y_train, X_test, y_test
 
 def load_cifar_100():
-    import cPickle
+    import _pickle as cPickle
     def load_cifar_file(fn):
         with open(os.path.join(config.data_dir, 'cifar-100', fn), 'rb') as f:
             data = cPickle.load(f)
@@ -143,7 +143,7 @@ def load_cifar_100():
     return X_train, y_train, X_test, y_test
 
 def load_svhn():
-    import cPickle
+    import _pickle as cPickle
     def load_svhn_files(filenames):
         if isinstance(filenames, str):
             filenames = [filenames]
@@ -519,7 +519,7 @@ def run_training(monitor_filename=None):
     # Create the result directory and basic run data.
 
     result_subdir = report.create_result_subdir(config.result_dir, config.run_desc)
-    print "Saving results to", result_subdir
+    print("Saving results to", result_subdir)
 
     # Start dumping stdout and stderr into result directory.
 
@@ -806,6 +806,6 @@ def run_training(monitor_filename=None):
 ###################################################################################################
 
 if __name__ == "__main__":
-    print "Starting up..."
+    print("Starting up...")
     run_training()
-    print "Exiting..."
+    print("Exiting...")

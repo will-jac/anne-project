@@ -23,7 +23,7 @@
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import threading, Queue, sys, traceback
+import threading, sys, traceback, queue
 
 #----------------------------------------------------------------------------
 
@@ -55,28 +55,28 @@ class WorkerThread(threading.Thread):
 class ThreadPool(object):
     def __init__(self, num_threads):
         assert num_threads >= 1
-        self.task_queue = Queue.Queue()
+        self.task_queue = queue.Queue()
         self.result_queues = {}
         self.num_threads = num_threads
-        for idx in xrange(self.num_threads):
+        for idx in range(self.num_threads):
             WorkerThread(self.task_queue).start()
 
     def add_task(self, func, args = ()):
         assert hasattr(func, '__call__') # must be a function
         if func not in self.result_queues:
-            self.result_queues[func] = Queue.Queue()
+            self.result_queues[func] = queue.Queue()
         self.task_queue.put((func, args, self.result_queues[func]))
 
     def get_result(self, func, verbose_exceptions = True): # returns (result, args)
         result, args = self.result_queues[func].get()
         if isinstance(result, ExceptionInfo):
             if verbose_exceptions:
-                print '\n\nWorker thread caught an exception:\n' + result.traceback + '\n',
-            raise result.type, result.value
+                print('\n\nWorker thread caught an exception:\n' + result.traceback + '\n') #,
+            raise result.type #raise result.type, result.value
         return result, args
 
     def finish(self):
-        for idx in xrange(self.num_threads):
+        for idx in range(self.num_threads):
             self.task_queue.put((None, (), None))
 
     def __enter__(self): # for 'with' statement

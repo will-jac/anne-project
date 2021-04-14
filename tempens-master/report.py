@@ -108,7 +108,7 @@ def export_run_details(fname):
 
 def export_config(fname):
     with open(fname, 'wt') as fout:
-        for k, v in sorted(config.__dict__.iteritems()):
+        for k, v in sorted(config.__dict__.items()):
             if not k.startswith('_'):
                 fout.write("%s = %s\n" % (k, str(v)))
 
@@ -118,13 +118,13 @@ class GenericCSV(object):
     def __init__(self, fname, *fields):
         self.fields = fields
         self.fout = open(fname, 'wt')
-        self.fout.write(string.join(fields, ',') + '\n')
+        self.fout.write(','.join(fields) + '\n')
         self.fout.flush()
 
     def add_data(self, *values):
         assert len(values) == len(self.fields)
         strings = [v if isinstance(v, str) else '%g' % v for v in values]
-        self.fout.write(string.join(strings, ',') + '\n')
+        self.fout.write(','.join(strings) + '\n')
         self.fout.flush()
 
     def close(self):
@@ -139,7 +139,7 @@ class GenericCSV(object):
 #----------------------------------------------------------------------------
 
 def merge_csv_reports(result_dir):
-    print 'Merging CSV reports in', result_dir
+    print('Merging CSV reports in', result_dir)
     print
 
     # List runs.
@@ -160,7 +160,7 @@ def merge_csv_reports(result_dir):
 
     all_rows = []
     for run_id, run_path in runs:
-        print run_id
+        print(run_id)
         run_rows = []
         for csv in glob.glob(os.path.join(run_path, '*.csv')):
             with open(csv, 'rt') as file:
@@ -184,14 +184,14 @@ def merge_csv_reports(result_dir):
 
     fname = os.path.join(result_dir, 'merged.csv')
     print
-    print "Writing", fname
+    print("Writing", fname)
 
     with open(fname, 'wt') as file:
-        file.write(string.join(fields, ',') + '\n')
+        file.write(','.join(fields) + '\n')
         for line in lines:
-            file.write(string.join(line, ',') + '\n')
+            file.write(','.join(line) + '\n')
 
-    print 'Done.'
+    print('Done.')
     print
 
 #----------------------------------------------------------------------------
@@ -199,7 +199,7 @@ def merge_csv_reports(result_dir):
 if __name__ == '__main__':
     print
     if len(sys.argv) != 2 or sys.argv[1].startswith('-'):
-        print "Usage: python %s <result_dir>" % sys.argv[0]
+        print("Usage: python %s <result_dir>" % sys.argv[0])
     else:
         merge_csv_reports(sys.argv[1])
 

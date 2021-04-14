@@ -45,10 +45,10 @@ def analyze_function(func, verbose = False):
         op_list = op_dict.items()
         op_list.sort(key = lambda x: -x[1])
 
-        print
+        print()
         for op, num in op_list:
-            print "  %-8d%s" % (num, op)
-        print
+            print("  %-8d%s" % (num, op))
+        print()
 
     # Check for float64 use.
 
@@ -56,11 +56,11 @@ def analyze_function(func, verbose = False):
         dtype = getattr(apply.outputs[0].type, 'dtype', '')
         acc_dtype = getattr(apply.op, 'acc_dtype', '')
         if dtype == 'float64' or acc_dtype == 'float64':
-            print 'WARNING: Theano float64:', apply
+            print('WARNING: Theano float64:', apply)
             if verbose:
-                print
+                print()
                 theano.printing.debugprint(apply)
-                print
+                print()
 
     # Check for excess GPU=>CPU transfers.
 
@@ -70,11 +70,11 @@ def analyze_function(func, verbose = False):
             for parent in topo:
                 parent_inputs = [var.owner for var in parent.inputs]
                 if apply in parent_inputs:
-                    print 'WARNING: Theano CPU fallback:', parent
+                    print('WARNING: Theano CPU fallback:', parent)
                     if verbose:
-                        print
+                        print()
                         theano.printing.debugprint(parent)
-                        print
+                        print()
 
 #----------------------------------------------------------------------------
 
