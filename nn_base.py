@@ -40,7 +40,7 @@ def build_nn(input_shape, hidden_shape_list, n_output,
 
 def pretrain_dae_nn(train_data, validation_data, hidden_shape_list, n_output,
         lrate, activation, epochs, callbacks,
-        out_activation=None, metrics=None, loss='mse',
+        out_activation=None, metrics=None, loss='mse', pretrain_loss='mse',
         dropout=None, L2_reg=None, verbose=False, return_params=False):
 
     if out_activation is None:
@@ -51,7 +51,7 @@ def pretrain_dae_nn(train_data, validation_data, hidden_shape_list, n_output,
     print('constructing initial model:', train_data.X.shape[1], hidden_shape_list[0], train_data.X.shape[1])
     base_model, loss, opt, metrics = build_nn(train_data.X.shape[1], [hidden_shape_list[0]], train_data.X.shape[1],
             lrate=lrate, activation=activation, out_activation=out_activation,
-            metrics=metrics, loss=loss, dropout=dropout, L2_reg=L2_reg, return_params=True)
+            metrics=metrics, loss=pretrain_loss, dropout=dropout, L2_reg=L2_reg, return_params=True)
 
     if verbose:
         base_model.summary()
@@ -80,7 +80,7 @@ def pretrain_dae_nn(train_data, validation_data, hidden_shape_list, n_output,
         # add the output layer back
         add_layer(model, train_data.X.shape[1], 'output' + str(i+1), activation=out_activation, L2_reg=L2_reg)
         # recompile the model
-        model.compile(loss=loss, metrics=metrics, optimizer=opt)
+        model.compile(loss=pretrain_loss, metrics=metrics, optimizer=opt)
         if verbose:
             model.summary()
         # train again
