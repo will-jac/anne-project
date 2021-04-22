@@ -99,7 +99,7 @@ class PseudoLabels():
 
         print('prelabeled data:', train_data)
 
-        if self.use_dae:
+        if self.use_dae: # Denoising Autoencoders
 
             dae_train_true = np.append(train_data.X, train_data.X, axis=0)
             dae_valid_true = validation_data.X
