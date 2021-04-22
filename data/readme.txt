@@ -1,0 +1,1 @@
+Contents of cifar-10, cifar-100, svhn, and tiny images are not included on git-hub. Clark should have a copy as well as copies being available via each readme.txt in each folder.
