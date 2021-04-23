@@ -1,0 +1,12 @@
+__pycache__
+*.pkl
+data/cifar-10/data_batch*
+data/cifar-10/test_batch*
+
+__pycache__/models.cpython-38.pyc
+__pycache__/nn_base.cpython-38.pyc
+__pycache__/pseudo_labels.cpython-38.pyc
+__pycache__/tests.cpython-38.pyc
+__pycache__/util.cpython-38.pyc
+data/__pycache__/adult.cpython-38.pyc
+results/adult_pseudo.out
