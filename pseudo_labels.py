@@ -13,11 +13,6 @@ rng = np.random.default_rng()
 
 UNLABELED = None
 
-def pl_loss(unlabeled=-1, num_classes=1, alpha=0.1):
-
-
-    return loss
-
 class PseudoLabels():
     '''
     Pseudo Labelling is a semi-supervised algorithm for ANN. It works as follows:
@@ -56,7 +51,6 @@ class PseudoLabels():
         self.out_size = out_size
         self.unlabeled = -1
 
-        
     def pl_loss(self, y_true, y_pred):
         '''
         Custom loss function for pseudo-labeling
