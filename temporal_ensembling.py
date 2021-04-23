@@ -81,6 +81,7 @@ class _PiTeModel(tf.keras.Model):
         the main difference between the two is what's used for the loss / gradient,
         although the prediction for the two does differ slightly
     """
+    # TODO: add n_ins, n_outs
     def __init__(self):
 
         super(_PiTeModel, self).__init__() 
@@ -260,6 +261,7 @@ class TemporalEnsembling():
         self.model = _PiTeModel()
 
     def fit(self, train_data, validation_data):
+        # TODO: add n_ins, n_outs
         
         Z = np.zeros((train_data.X.shape[0] + train_data.U.shape[0], 10))
         z = np.zeros((train_data.X.shape[0] + train_data.U.shape[0], 10)) 
@@ -289,10 +291,11 @@ class TemporalEnsembling():
             epoch_loss_avg_val = tf.keras.metrics.Mean()
             epoch_accuracy_val = tf.keras.metrics.Accuracy()
             
-            for batch in range(self.batch_size):
+            for _ in range(self.batch_size):
 
-                X, y, X_indexes = next(train_X_iterator)
-                U, _, U_indexes = next(train_U_iterator)
+                X_indexes = next(train_X_iterator)
+                U_indexes = next(train_U_iterator)
+                X, y, U = train_data.X[X_indexes], train_data.y[X_indexes], train_data.U[U_indexes]
 
                 ensemble_indexes = np.concatenate([X_indexes.numpy(), train_data.X.shape[0] + U_indexes.numpy()])
                 ensemble_targets = z[ensemble_indexes]
@@ -320,7 +323,7 @@ class TemporalEnsembling():
                 X_val, y_val, _ = next(val_iterator)
                 y_val_predictions = self.model(X_val, training=False)
 
-                epoch_loss_avg_val(tf.keras.losses.softmax_cross_entropy(y_val, y_val_predictions))
+                epoch_loss_avg_val(tf.compat.v1.losses.softmax_cross_entropy(y_val, y_val_predictions))
                 epoch_accuracy_val(tf.argmax(y_val_predictions, 1), tf.argmax(y_val, 1))
 
             print("Epoch {:03d}/{:03d}: Train Loss: {:9.7f}, Train Accuracy: {:02.6%}, Validation Loss: {:9.7f}, "
