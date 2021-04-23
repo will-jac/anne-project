@@ -16,7 +16,7 @@ import tensorflow_addons as tfa
 # https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
 
 def temporal_ensembling_loss(X, y, U, model, unsupervised_weight, ensembling_targets):
-    z_X= model(X)
+    z_X = model(X)
     z_U = model(U)
 
     pred = tf.concat([z_X, z_U], 0)
@@ -34,25 +34,24 @@ def temporal_ensembling_gradients(X, y, U, model, unsupervised_weight, ensemblin
 
     return ensemble_precitions, loss_value, tape.gradient(loss_value, model.variables)
 
-def pi_model_loss(X_train_labeled, y_train_labeled, X_train_unlabeled, pi_model, unsupervised_weight):
-    z_labeled = pi_model(X_train_labeled)
-    z_labeled_i = pi_model(X_train_labeled)
+def pi_model_loss(X, y, U, pi_model, unsupervised_weight):
+    z_labeled = pi_model(X)
+    z_labeled_i = pi_model(X)
 
-    z_unlabeled = pi_model(X_train_unlabeled)
-    z_unlabeled_i = pi_model(X_train_unlabeled)
+    z_unlabeled = pi_model(U)
+    z_unlabeled_i = pi_model(U)
 
     # Loss = supervised loss + unsup loss of labeled sample + unsup loss unlabeled sample
-    return tf.compat.v1.losses.softmax_cross_entropy(y_train_labeled, z_labeled) + \
+    return tf.compat.v1.losses.softmax_cross_entropy(y, z_labeled) + \
         unsupervised_weight * (
             tf.keras.losses.mean_squared_error(z_labeled, z_labeled_i) +
             tf.keras.losses.mean_squared_error(z_unlabeled, z_unlabeled_i)
         )
 
-def pi_model_gradients(X_train_labeled, y_train_labeled, X_train_unlabeled, pi_model, unsupervised_weight):
+def pi_model_gradients(X, y, U, pi_model, unsupervised_weight):
 
     with tf.GradientTape() as tape:
-        loss_value = pi_model_loss(X_train_labeled, y_train_labeled, X_train_unlabeled,
-                                   pi_model, unsupervised_weight)
+        loss_value = pi_model_loss(X, y, U, pi_model, unsupervised_weight)
     return loss_value, tape.gradient(loss_value, pi_model.variables)
 
 # Ramps the value of the weight and learning rate in the first 80 epochs, according to the paper

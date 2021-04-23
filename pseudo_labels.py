@@ -93,7 +93,7 @@ class PseudoLabels():
             label_shape = tuple(data.U.shape[0])
         else:
             label_shape = (data.U.shape[0], data.y.shape[1])
-        pseudo_labels = -1 * np.ones(label_shape)
+        pseudo_labels = self.unlabeled * np.ones(label_shape)
 
         return Data(
             np.append(data.X, data.U, axis=0),
