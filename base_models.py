@@ -172,7 +172,7 @@ class Scifar10Model(tf.keras.Model):
 
         for layers in [
             [self._conv2a, self._conv2b, self._conv2c, self._pool2, self._dropout2],
-            [self._conv3a, self._conv3b, self._conv3c, self._pool3, self._dropout3]
+            [self._conv3a, self._conv3b, self._conv3c]
         ]:
             base_model.trainable = False
 
