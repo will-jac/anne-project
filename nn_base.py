@@ -4,16 +4,8 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import L2
 
-def add_layer(model, shape, name, activation, use_bias=True, L2_reg=None, dropout=None, layer=Dense):
-    if L2_reg is not None:
-        model.add(layer(shape, name=name, use_bias=use_bias, kernel_regularizer=L2(L2_reg)))
-    else:
-        model.add(layer(shape, name=name, use_bias=use_bias))
-    if dropout is not None:
-        model.add(Dropout(dropout))
-
 def build_nn(input_shape, hidden_shape_list, n_output,
-        lrate, activation, 
+        lrate, activation, layer=Dense,
         out_activation=None,  metrics=None, loss='mse',
         dropout=None, L2_reg=None, return_params=False):
 
@@ -24,10 +16,17 @@ def build_nn(input_shape, hidden_shape_list, n_output,
     model.add(InputLayer(input_shape=input_shape))
 
     for i, shape in enumerate(hidden_shape_list):
-
-        add_layer(model, shape, 'hidden' + str(i), activation, L2_reg=L2_reg, dropout=dropout)
+        if L2_reg is not None:
+            model.add(layer(shape, activation=activation, use_bias=True, kernel_regularizer=L2(L2_reg)))
+        else:
+            model.add(layer(shape, activation=activation, use_bias=True))
+        if dropout is not None:
+            model.add(Dropout(dropout))
     
-    add_layer(model, n_output, "output", out_activation)
+    if L2_reg is not None:
+        model.add(Dense(n_output, name='output', use_bias=True, kernel_regularizer=L2(L2_reg)))
+    else:
+        model.add(Dense(n_output, name='output', use_bias=True))
     
     opt = Adam(lr=lrate)
 
@@ -76,9 +75,19 @@ def pretrain_dae_nn(train_data, validation_data, hidden_shape_list, n_output,
             model.add(layer)
 
         # add a new hidden layer
-        add_layer(model, h, 'hidden' + str(i+1), activation=activation, L2_reg=L2_reg)
+        if L2_reg is not None:
+            model.add(Dense(h, activation=activation, use_bias=True, kernel_regularizer=L2(L2_reg)))
+        else:
+            model.add(Dense(h, activation=activation, use_bias=True))
+        if dropout is not None:
+            model.add(Dropout(dropout))
+
         # add the output layer back
-        add_layer(model, train_data.X.shape[1], 'output' + str(i+1), activation=out_activation, L2_reg=L2_reg)
+        if L2_reg is not None:
+            model.add(Dense(train_data.X.shape[1], name='output' + str(i+1), activation=out_activation, use_bias=True, kernel_regularizer=L2(L2_reg)))
+        else:
+            model.add(Dense(train_data.X.shape[1], name='output' + str(i+1), activation=out_activation, use_bias=True))
+        
         # recompile the model
         model.compile(loss=pretrain_loss, metrics=metrics, optimizer=opt)
         if verbose:
@@ -102,7 +111,10 @@ def pretrain_dae_nn(train_data, validation_data, hidden_shape_list, n_output,
         if dropout is not None:
             model.add(Dropout(dropout))
 
-    add_layer(model, n_output, 'output', activation=out_activation, L2_reg=L2_reg)
+    if L2_reg is not None:
+        model.add(Dense(train_data.X.shape[1], name='output' + str(i+1), activation=out_activation, use_bias=True, kernel_regularizer=L2(L2_reg)))
+    else:
+        model.add(Dense(train_data.X.shape[1], name='output' + str(i+1), activation=out_activation, use_bias=True))
 
     # unfreeze everything
     model.trainable = True    

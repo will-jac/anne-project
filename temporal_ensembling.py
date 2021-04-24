@@ -14,6 +14,8 @@ import tensorflow_addons as tfa
 
 from generator import training_generator
 
+from model_config import *
+
 # for more information about how to use the loss / gradients defined here, see
 # https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
 
@@ -75,166 +77,10 @@ def ramp_down_function(epoch, num_epochs, epoch_with_max_rampdown = 50):
     else:
         return 1.0
 
-class _PiTeModel(tf.keras.Model):
-    """
-        Base class for pi and temporal ensembling models, as defined in
-        https://research.nvidia.com/sites/default/files/publications/laine2017iclr_paper.pdf 
-
-        the main difference between the two is what's used for the loss / gradient,
-        although the prediction for the two does differ slightly
-    """
-    # TODO: add n_ins, n_outs
-    def __init__(self):
-
-        super(_PiTeModel, self).__init__() 
-
-        # create the network with dropout as in the paper
-
-        self._conv1a = WeightNormalization(
-            tf.keras.layers.Conv2D(
-                filters=128, 
-                kernel_size=[3, 3],
-                padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
-                kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1)
-            )
-        )
-        self._conv1b = WeightNormalization(
-            tf.keras.layers.Conv2D(
-                filters=128, 
-                kernel_size=[3, 3],
-                padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
-                kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1),
-            )
-        )
-        self._conv1c = WeightNormalization(
-            tf.keras.layers.Conv2D(
-                filters=128, 
-                kernel_size=[3, 3],
-                padding="same", activation=tf.keras.layers.LeakyReLU(alpha=0.1),
-                kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1),
-            )
-        )
-        self._pool1 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
-        self._dropout1 = tf.keras.layers.Dropout(0.5)
-        self._conv2a = WeightNormalization(
-            tf.keras.layers.Conv2D(
-                filters=256, 
-                kernel_size=[3, 3],
-                padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
-                kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1),
-            )
-        )
-        self._conv2b = WeightNormalization(
-            tf.keras.layers.Conv2D(
-                filters=256, 
-                kernel_size=[3, 3],
-                padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
-                kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1),
-            )
-        )
-        self._conv2c = WeightNormalization(
-            tf.keras.layers.Conv2D(
-                filters=256, kernel_size=[3, 3],
-                padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
-                kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1),
-            )
-        )
-        self._pool2 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
-        self._dropout2 = tf.keras.layers.Dropout(0.5)
-        self._conv3a = WeightNormalization(
-            tf.keras.layers.Conv2D(
-                filters=512, kernel_size=[3, 3],
-                padding="valid", activation=tf.keras.layers.LeakyReLU(alpha=0.1),
-                kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1)
-            )
-        )
-        self._conv3b = WeightNormalization(
-            tf.keras.layers.Conv2D(
-                filters=256, 
-                kernel_size=[1, 1],
-                padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
-                kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1)
-            )
-        )
-        self._conv3c = WeightNormalization(
-            tf.keras.layers.Conv2D(
-                filters=128, 
-                kernel_size=[1, 1],
-                padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
-                kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1)
-            )
-        )
-        self._dense = WeightNormalization(
-            tf.keras.layers.Dense(
-                units=10, 
-                activation=tf.nn.softmax,
-                kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1)
-            )
-        )
-
-    def __gaussian_noise(self, input, std):
-
-        noise = tf.random.normal(shape=tf.shape(input), mean=0.0, stddev=std, dtype=tf.float32)
-        return input + noise
-
-    def __image_augmentation(self, image):
-
-        random_shifts = np.random.randint(-2, 2, (image.numpy().shape[0], 2))
-        random_transformations = tfa.image.translations_to_projective_transforms(random_shifts)
-        image = tfa.image.transform(image, random_transformations, 'NEAREST', output_shape=tf.convert_to_tensor(image.numpy().shape[1:3], dtype=np.int32)) 
-
-        return image
-
-    def call(self, input, training=True):
-        
-        # add the stochastic augmentation to the input if we're training
-        if training:
-            h = self.__gaussian_noise(input, 0.15)
-            h = self.__image_augmentation(h)
-        else:
-            h = input
-        
-        # pass the (augmented) input through the model
-        h = self._conv1a(h, training)
-        h = self._conv1b(h, training)
-        h = self._conv1c(h, training)
-        h = self._pool1(h)
-        h = self._dropout1(h, training=training)
-
-        h = self._conv2a(h, training)
-        h = self._conv2b(h, training)
-        h = self._conv2c(h, training)
-        h = self._pool2(h)
-        h = self._dropout2(h, training=training)
-
-        h = self._conv3a(h, training)
-        h = self._conv3b(h, training)
-        h = self._conv3c(h, training)
-
-        # Average Pooling
-        h = tf.reduce_mean(h, axis=[1, 2])
-        return self._dense(h, training)
 
 class TemporalEnsembling():
     
-    def __init__(self,
+    def __init__(self, model,
             epochs, batch_size, max_lrate=0.0002,
             alpha=0.6, beta_1=[0.9,0.5], beta_2=0.98,
             max_unsupervised_weight=0.5
@@ -261,7 +107,7 @@ class TemporalEnsembling():
 
         self.loss = temporal_ensembling_loss
         self.gradients = temporal_ensembling_gradients
-        self.model = _PiTeModel()
+        self.model = model
 
     def fit(self, train_data, validation_data):
         # TODO: add n_ins, n_outs
