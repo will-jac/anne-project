@@ -14,8 +14,6 @@ import tensorflow_addons as tfa
 
 from generator import training_generator
 
-from model_config import *
-
 # for more information about how to use the loss / gradients defined here, see
 # https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
 
@@ -200,7 +198,7 @@ class TemporalEnsembling():
 
 class PiModel():
     
-    def __init__(self,
+    def __init__(self, model,
             epochs, batch_size, max_lrate=0.0002,
             alpha=0.6, beta_1=[0.9,0.5], beta_2=0.98,
             max_unsupervised_weight=0.5
@@ -227,7 +225,7 @@ class PiModel():
 
         self.loss = pi_model_loss
         self.gradients = pi_model_gradients
-        self.model = _PiTeModel()
+        self.model = model
 
     def fit(self, train_data, validation_data):
         # TODO: add n_ins, n_outs

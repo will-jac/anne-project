@@ -163,7 +163,7 @@ class Scifar10Model(tf.keras.Model):
                 tf.keras.layers.InputLayer(input_shape=train_X.shape[1]), 
                 self._conv1a, self._conv1b, self._conv1c, 
                 self._pool1, self._dropout1,
-                tf.keras.layers.Dense(train_X.shape[1], activation=out_activation, name='output', use_bias=True, kernel_regularizer=L2(L2_reg))
+                tf.keras.layers.Dense(train_X.shape[1], activation=out_activation, name='output', use_bias=True, kernel_regularizer=tf.keras.regularizers.L2(L2_reg))
             ]
         )
         base_model.compile(loss=loss, metrics=metrics, optimizer=opt)
@@ -186,7 +186,7 @@ class Scifar10Model(tf.keras.Model):
                 model.add(layer)
 
             # add the output back
-            model.add(tf.keras.layers.Dense(train_X.shape[1], activation=out_activation, name='output1', use_bias=True, kernel_regularizer=L2(L2_reg)))
+            model.add(tf.keras.layers.Dense(train_X.shape[1], activation=out_activation, name='output1', use_bias=True, kernel_regularizer=tf.keras.regularizers.L2(L2_reg)))
 
             # recompile and run
             model.compile(loss=loss, metrics=metrics, optimizer=opt)
