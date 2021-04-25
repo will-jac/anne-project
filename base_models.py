@@ -22,6 +22,8 @@ class Scifar10Model(tf.keras.Model):
 
         super(Scifar10Model, self).__init__() 
 
+        self.out_size = 10
+
         self.do_image_augmentation = do_image_augmentation
         # create the network with dropout
 
@@ -154,7 +156,7 @@ class Scifar10Model(tf.keras.Model):
         h = tf.reduce_mean(h, axis=[1, 2])
         return self._dense(h, training)
 
-    def pretrain(self, train_X, validation_X, epochs, lrate, L2_reg,
+    def pretrain(self, train_X, validation_X, epochs, lrate=0.001, L2_reg=0.001,
             loss='mse', out_activation='softmax', callbacks=None, metrics=None):
         opt = tf.keras.optimizers.Adam(lr=lrate)
         # pretraining will work on each conv2d chunk

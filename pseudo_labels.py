@@ -13,6 +13,8 @@ rng = np.random.default_rng()
 
 UNLABELED = None
 
+# TODO: schedule alpha
+
 class PseudoLabels():
     '''
     Pseudo Labelling is a semi-supervised algorithm for ANN. It works as follows:
@@ -28,18 +30,16 @@ class PseudoLabels():
     This algorithm is primarily implemented as a custom loss function. Any loss passed in will not be used (yet)
     '''
 
-    def __init__(self, in_size, hidden, out_size,
-            lrate=0.01, activation='sigmoid', out_activation=None,
-            dropout=0.5, use_dae=True):
+    def __init__(self, model, lrate, epochs, batch_size,
+            use_dae=True, pretrain_lrate=0.001, pretrain_epochs=100,
+            af = 3, T1 = 200, T2 = 800
+        ):
         # store params
         self.lrate = lrate
-        self.hidden = hidden
-        self.dropout = dropout
+        self.epochs = epochs
         self.use_dae = use_dae
-        self.activation = activation
-        self.out_activation = out_activation
-
-        self.epochs = 100
+        self.pretrain_epochs = pretrain_epochs
+        self.pretrain_lrate = pretrain_lrate
 
         self.callbacks = [
             keras.callbacks.EarlyStopping(patience=500, restore_best_weights=True, min_delta=0.01)
@@ -47,9 +47,23 @@ class PseudoLabels():
 
         self.name='pseudo_labels'
 
-        self.alpha = 0.1
-        self.out_size = out_size
+        self.alpha = alpha
         self.unlabeled = -1
+
+        self.model = model
+
+        ## for scheduling alpha
+        self.af = af
+        self.T1 = T1
+        self.T2 = T2
+
+    def alpha_schedule(self, epoch_num):
+        if epoch_num < self.T1:
+            return 0
+        if epoch_num < self.T2:
+            return (epoch_num - self.T1) / (self.T2 - self.T1) * self.af
+        else:
+            return self.af
 
     def pl_loss(self, y_true, y_pred):
         '''
@@ -65,7 +79,7 @@ class PseudoLabels():
         '''
         # tf.print('pl_loss:', y_true, y_pred)
 
-        y_pl = K.one_hot(K.argmax(y_pred, axis=1), self.out_size)
+        y_pl = K.one_hot(K.argmax(y_pred, axis=1), self.model.out_size)
         y_pl = tf.cast(y_pl, y_true.dtype)
 
         index = y_true == self.unlabeled
@@ -73,7 +87,8 @@ class PseudoLabels():
         y_pl = tf.where(index, y_pl, y_true)
 
         index = K.all(index, axis=1)
-        coef_arr = tf.where(index, self.alpha, 1.0)
+        alpha = self.alpha_schedule()
+        coef_arr = tf.where(index, alpha, 1.0)
         # tf.print('coef_arr:', coef_arr)
         # tf.print('labeled:', y_pl[labeled_index], y_pred[labeled_index])
         # tf.print('unlabeled:', y_pl[unlabeled_index], y_pred[unlabeled_index])
@@ -128,19 +143,13 @@ class PseudoLabels():
 
             print('building model with dae train', dae_train.X.shape, dae_train.y.shape)
 
-            self.model = pretrain_dae_nn(dae_train, dae_valid, self.hidden, train_data.y.shape[1],
-                    lrate=self.lrate, activation=self.activation, out_activation=self.out_activation,
-                    loss=self.pl_loss, pretrain_loss='mse',
-                    epochs=int(self.epochs / 10), callbacks=self.callbacks,
-                    verbose=True)
-        else:
-            self.model = build_nn(train_data.X.shape[1], self.hidden, train_data.y.shape[1],
-                    lrate=self.lrate, activation=self.activation, out_activation=self.out_activation,
-                    loss=self.pl_loss,
-                    dropout=self.dropout)
+            self.model.pretrain(dae_train, dae_valid, self.pretrain_epochs, self.pretrain_lrate)
 
         print('final model:')
         self.model.summary()
+
+        # compile the model
+        self.model.compile(loss=self.pl_loss, optimizer=tf.keras.optimizers.Adam(lr=self.lrate))
 
         # now, do the training (pseudo-labels & conditional cross-entropy)
 
