@@ -31,6 +31,7 @@ class PseudoLabels():
     '''
 
     def __init__(self, model, lrate, epochs, batch_size,
+            patience=500, min_delta=0.0,
             use_dae=True, pretrain_lrate=0.001, pretrain_epochs=100,
             af = 3, T1 = 200, T2 = 800
         ):
@@ -42,12 +43,15 @@ class PseudoLabels():
         self.pretrain_lrate = pretrain_lrate
 
         self.callbacks = [
-            keras.callbacks.EarlyStopping(patience=500, restore_best_weights=True, min_delta=0.01)
+            keras.callbacks.EarlyStopping(patience=patience, restore_best_weights=True, min_delta=min_delta),
+            # alpha scheduler
+            keras.callbacks.LambdaCallback(
+                on_epoch_begin = lambda epoch, logs : self.alpha_schedule(epoch)
+            )
         ]
 
         self.name='pseudo_labels'
 
-        self.alpha = alpha
         self.unlabeled = -1
 
         self.model = model
@@ -56,6 +60,8 @@ class PseudoLabels():
         self.af = af
         self.T1 = T1
         self.T2 = T2
+
+        self.alpha = 0 # initially
 
     def alpha_schedule(self, epoch_num):
         if epoch_num < self.T1:
@@ -87,8 +93,7 @@ class PseudoLabels():
         y_pl = tf.where(index, y_pl, y_true)
 
         index = K.all(index, axis=1)
-        alpha = self.alpha_schedule()
-        coef_arr = tf.where(index, alpha, 1.0)
+        coef_arr = tf.where(index, self.alpha, 1.0)
         # tf.print('coef_arr:', coef_arr)
         # tf.print('labeled:', y_pl[labeled_index], y_pred[labeled_index])
         # tf.print('unlabeled:', y_pl[unlabeled_index], y_pred[unlabeled_index])
@@ -157,7 +162,7 @@ class PseudoLabels():
 
         history = self.model.fit(train_data.X, train_data.y, 
             validation_data=(validation_data.X, validation_data.y),
-            callbacks=self.callbacks, epochs=self.epochs)
+            callbacks=self.callbacks + [alpha_cb], epochs=self.epochs)
 
         print('finished fitting')
         return history.history
