@@ -162,7 +162,7 @@ class PseudoLabels():
 
         history = self.model.fit(train_data.X, train_data.y, 
             validation_data=(validation_data.X, validation_data.y),
-            callbacks=self.callbacks + [alpha_cb], epochs=self.epochs)
+            callbacks=self.callbacks, epochs=self.epochs)
 
         print('finished fitting')
         return history.history
@@ -170,31 +170,31 @@ class PseudoLabels():
     def predict(self, X):
         return self.model.predict(X)
 
-if __name__ == '__main__':
-    from util import Data
+# if __name__ == '__main__':
+#     from util import Data
 
-    # small test
-    xor = Data(
-        np.array([
-            [0,0,0],
-            [0,0,1],
-            # [0,1,0],
-            # [0,1,1],
-        ]),
-        np.array([
-            [1,0], [0,1] #, [1,0], [0,1]
-        ]),
-        np.array([
-            [1,0,0],
-            [1,0,1],
-            # [1,1,0],
-            # [1,1,1]
-        ])
-    )
+#     # small test
+#     xor = Data(
+#         np.array([
+#             [0,0,0],
+#             [0,0,1],
+#             # [0,1,0],
+#             # [0,1,1],
+#         ]),
+#         np.array([
+#             [1,0], [0,1] #, [1,0], [0,1]
+#         ]),
+#         np.array([
+#             [1,0,0],
+#             [1,0,1],
+#             # [1,1,0],
+#             # [1,1,1]
+#         ])
+#     )
 
-    model = PseudoLabels(3, [5, 4, 3], 2, use_dae=False)
+#     model = PseudoLabels(3, [5, 4, 3], 2, use_dae=False)
 
-    model.fit(xor, xor.Labeled)
+#     model.fit(xor, xor.Labeled)
 
 
 
