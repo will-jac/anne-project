@@ -4,9 +4,15 @@ import util
 
 # data sets
 import data.adult as adult
+import data.cifar_10 as cifar_10
 
 # other things
 from sklearn.metrics import roc_curve, plot_roc_curve
+
+# All test functions need to 
+# Import the data and set-up train, test, validation sets.
+# Call model.fit on the training and validation test.
+# Return the accuracy based on the test set. 
 
 def adult_test(model, u=0.8):
 
@@ -37,6 +43,14 @@ def adult_test(model, u=0.8):
     print(model.name, ' : acc:', acc)
 
     return acc
+
+def cifar_10_test (model, u=0.8):
+    # Load in training and test data
+
+    # One-hot encode cifar_10.y_train and cifar_10.y_test
+
+    # Prepare cifar_10.X_train and cifar_10.X_test
+    
 
 # return test function (which should accept a model and return the accuracy) and the input / output dimmensions
 tests = {

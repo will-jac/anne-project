@@ -68,12 +68,13 @@ class PseudoLabels():
         y_pl = K.one_hot(K.argmax(y_pred, axis=1), self.out_size)
         y_pl = tf.cast(y_pl, y_true.dtype)
 
+        # Calculate whether each sample in the batch is labeled or unlabeled
         index = y_true == self.unlabeled
-
         y_pl = tf.where(index, y_pl, y_true)
-
         index = K.all(index, axis=1)
+        # Set coefficient for each sample based on whether labeled or unlabeled
         coef_arr = tf.where(index, self.alpha, 1.0)
+
         # tf.print('coef_arr:', coef_arr)
         # tf.print('labeled:', y_pl[labeled_index], y_pred[labeled_index])
         # tf.print('unlabeled:', y_pl[unlabeled_index], y_pred[unlabeled_index])
@@ -93,7 +94,7 @@ class PseudoLabels():
             label_shape = tuple(data.U.shape[0])
         else:
             label_shape = (data.U.shape[0], data.y.shape[1])
-        pseudo_labels = self.unlabeled * np.ones(label_shape)
+        pseudo_labels = -1 * np.ones(label_shape)
 
         return Data(
             np.append(data.X, data.U, axis=0),
