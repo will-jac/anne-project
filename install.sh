@@ -1,0 +1,1 @@
+pip3 install typeguard sklearn matplotlib tensorflow_addons

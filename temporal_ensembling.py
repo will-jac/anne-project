@@ -6,10 +6,6 @@ import math
 import numpy as np 
 import tensorflow as tf
 
-# https://www.tensorflow.org/addons/tutorials/layers_weightnormalization
-# import tensorflow_addons as tfa
-from weight_normalization import WeightNormalization
-
 import tensorflow_addons as tfa
 
 from generator import training_generator

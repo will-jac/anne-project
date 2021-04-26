@@ -15,8 +15,12 @@ def create_parser():
     
     ## The following are parameters for the models. They're (mostly) optional, and may not be
     # used by all models
+
+    # used by all
     parser.add_argument('-lrate', type=float, default=0.001, help='learning rate')
-    parser.add_argument('-hidden', nargs='+', type=int, default=[100, 10], help='number of hidden neurons'),
+    parser.add_argument('-batch_size', type=float, default=100, help='batch size')
+    parser.add_argument('-epochs', type=float, default=1000, help='number of epochs')
+
     parser.add_argument('-activation', type=str, default='relu', help='hidden activation function'),
     parser.add_argument('-out_activation', type=str, default='softmax', help='output activation function')
     parser.add_argument('-dropout', type=float, default=0.5, help='dropout probability')

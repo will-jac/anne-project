@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 
 import tensorflow.keras as keras
-from keras import backend as K
+from tensorflow.keras import backend as K
 
 from nn_base import build_nn, pretrain_dae_nn
 

@@ -52,7 +52,7 @@ def cifar10_test (model, u=0.8):
     X_train, y_train, X_test, y_test = cifar_10.load_cifar_10()
 
     # Setup test set
-    test = util.Data(X_test, y_test)
+    test = util.Data(X_test, y_test, None)
     
     # Split training test into labeled and unlabeled
     (label, unlabeled) = util.train_test_valid_split(X_train, y_train, split=(u, 1 - u))

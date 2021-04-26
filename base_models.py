@@ -1,4 +1,4 @@
-from weight_normalization import WeightNormalization
+from weight_normalization import MeanOnlyWeightNormalization
 import tensorflow as tf
 import tensorflow_addons as tfa
 import numpy as np
@@ -27,7 +27,7 @@ class Cifar10Model(tf.keras.Model):
         self.do_image_augmentation = do_image_augmentation
         # create the network with dropout
 
-        self._conv1a = WeightNormalization(
+        self._conv1a = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=128, 
                 kernel_size=[3, 3],
@@ -37,7 +37,7 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1)
             )
         )
-        self._conv1b = WeightNormalization(
+        self._conv1b = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=128, 
                 kernel_size=[3, 3],
@@ -47,7 +47,7 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1),
             )
         )
-        self._conv1c = WeightNormalization(
+        self._conv1c = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=128, 
                 kernel_size=[3, 3],
@@ -58,7 +58,7 @@ class Cifar10Model(tf.keras.Model):
         )
         self._pool1 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
         self._dropout1 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
-        self._conv2a = WeightNormalization(
+        self._conv2a = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=256, 
                 kernel_size=[3, 3],
@@ -68,7 +68,7 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1),
             )
         )
-        self._conv2b = WeightNormalization(
+        self._conv2b = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=256, 
                 kernel_size=[3, 3],
@@ -78,7 +78,7 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1),
             )
         )
-        self._conv2c = WeightNormalization(
+        self._conv2c = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=256, kernel_size=[3, 3],
                 padding="same", 
@@ -89,7 +89,7 @@ class Cifar10Model(tf.keras.Model):
         )
         self._pool2 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
         self._dropout2 = tf.keras.layers.Dropout(0.5)
-        self._conv3a = WeightNormalization(
+        self._conv3a = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=512, kernel_size=[3, 3],
                 padding="valid", activation=tf.keras.layers.LeakyReLU(alpha=0.1),
@@ -97,7 +97,7 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1)
             )
         )
-        self._conv3b = WeightNormalization(
+        self._conv3b = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=256, 
                 kernel_size=[1, 1],
@@ -107,7 +107,7 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1)
             )
         )
-        self._conv3c = WeightNormalization(
+        self._conv3c = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=128, 
                 kernel_size=[1, 1],
@@ -117,7 +117,7 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1)
             )
         )
-        self._dense = WeightNormalization(
+        self._dense = MeanOnlyWeightNormalization(
             tf.keras.layers.Dense(
                 units=10, 
                 activation=tf.nn.softmax,
