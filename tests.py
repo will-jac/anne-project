@@ -1,10 +1,10 @@
 import numpy as np
-
 import util
 
 # data sets
 import data.adult as adult
 import data.cifar_10 as cifar_10
+
 
 # other things
 from sklearn.metrics import roc_curve, plot_roc_curve
@@ -15,7 +15,7 @@ from sklearn.metrics import roc_curve, plot_roc_curve
 # Return the accuracy based on the test set. 
 # test-specific models
 
-from base_models import Scifar10Model
+from base_models import Cifar10Model
 
 def adult_test(model, u=0.8):
 
@@ -47,19 +47,46 @@ def adult_test(model, u=0.8):
 
     return acc
 
-def cifar_10_test (model, u=0.8):
-    # Load in training and test data
+def cifar10_test (model, u=0.8):
+    # Load in training and test data, done by including cifar_10.py
+    X_train, y_train, X_test, y_test = cifar_10.load_cifar_10()
 
-    # One-hot encode cifar_10.y_train and cifar_10.y_test
-
-    # Prepare cifar_10.X_train and cifar_10.X_test
+    # Setup test set
+    test = util.Data(X_test, y_test)
     
+    # Split training test into labeled and unlabeled
+    (label, unlabeled) = util.train_test_valid_split(X_train, y_train, split=(u, 1 - u))
 
-# return test function (which should accept a model and return the accuracy) and the input / output dimmensions
-def scifar10_test(model):
-    ...
-    # TODO
+    # Split training data into training and validation
+    (train, valid) = util.train_test_valid_split(label.X, label.y, split=(0.8, 0.2), U = unlabeled.X) # TODO specify validation/train split?
+
+    # TODO One-hot encode cifar_10.y_train and cifar_10.y_test?
+
+    # Train model using training and validation sets
+    model.fit(train, valid)
+
+    # Test the model using test set
+    y_pred = model.predict(test.X)
+    y_pred = y_pred.ravel() #TODO necessary?
+
+    # TODO if outputs are one-hot encoded, need to decode for correctness test
+    wrong = util.percent_wrong(y_pred.ravel(), test.y.ravel())
+    acc = 1.0 - wrong
+    print(model.name, ' : acc:', acc)
+
+    return acc    
+
+def svhn_test (model, u=0.8):
+    # Load SVHN dataset
+    ds = tfds.load('mnist', split='train')
+
+
+# # return test function (which should accept a model and return the accuracy) and the input / output dimmensions
+# def scifar10_test(model):
+#     ...
+#     # TODO
+
 # return test-specific model and the testing function (which should accept a model and return the accuracy)
 tests = {
-    'scifar10' : (Scifar10Model, scifar10_test)
+    'cifar10' : (Cifar10Model, cifar10_test)
 }

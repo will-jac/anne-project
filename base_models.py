@@ -16,11 +16,11 @@ def image_augmentation(image):
 
     return image
 
-class Scifar10Model(tf.keras.Model):
+class Cifar10Model(tf.keras.Model):
 
     def __init__(self, do_image_augmentation=True):
 
-        super(Scifar10Model, self).__init__() 
+        super(Cifar10Model, self).__init__() 
 
         self.out_size = 10
 
