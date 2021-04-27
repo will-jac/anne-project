@@ -27,6 +27,9 @@ class Cifar10Model(tf.keras.Model):
         self.do_image_augmentation = do_image_augmentation
         # create the network with dropout
 
+        ## TODO: check relu usage. I changed to tanh because that's what's more typically used
+
+        activation = 'tanh'
         self._conv1a = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=128, 
@@ -34,7 +37,7 @@ class Cifar10Model(tf.keras.Model):
                 padding="same", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation='relu'
+                activation=activation
             )
         )
         self._conv1b = MeanOnlyWeightNormalization(
@@ -44,7 +47,7 @@ class Cifar10Model(tf.keras.Model):
                 padding="same", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation='relu',
+                activation=activation,
             )
         )
         self._conv1c = MeanOnlyWeightNormalization(
@@ -54,7 +57,7 @@ class Cifar10Model(tf.keras.Model):
                 padding="same",
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation='relu',
+                activation=activation,
             )
         )
         self._pool1 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
@@ -66,7 +69,7 @@ class Cifar10Model(tf.keras.Model):
                 padding="same", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation='relu'
+                activation=activation
             )
         )
         self._conv2b = MeanOnlyWeightNormalization(
@@ -76,7 +79,7 @@ class Cifar10Model(tf.keras.Model):
                 padding="same", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation='relu'
+                activation=activation
             )
         )
         self._conv2c = MeanOnlyWeightNormalization(
@@ -85,7 +88,7 @@ class Cifar10Model(tf.keras.Model):
                 padding="same", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation='relu'
+                activation=activation
             )
         )
         self._pool2 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
@@ -96,7 +99,7 @@ class Cifar10Model(tf.keras.Model):
                 padding="same",
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation='relu'
+                activation=activation
             )
         )
         self._conv3b = MeanOnlyWeightNormalization(
@@ -106,7 +109,7 @@ class Cifar10Model(tf.keras.Model):
                 padding="same", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation='relu'
+                activation=activation
             )
         )
         self._conv3c = MeanOnlyWeightNormalization(
@@ -116,13 +119,13 @@ class Cifar10Model(tf.keras.Model):
                 padding="same", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation='relu'
+                activation=activation
             )
         )
         self._dense = MeanOnlyWeightNormalization(
             tf.keras.layers.Dense(
                 units=10, 
-                activation=tf.nn.softmax,
+                activation='sigmoid',## TODO: check what this should be - I changed to sigmoid bc that makes more sense with crossentropy
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1)
             )

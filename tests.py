@@ -55,7 +55,7 @@ def cifar10_test (model, u=0.8):
     test = util.Data(X_test, y_test, None)
     
     # Split training test into labeled and unlabeled
-    (label, unlabeled) = util.train_test_valid_split(X_train, y_train, split=(u, 1 - u))
+    (label, unlabeled) = util.train_test_valid_split(X_train, y_train, split=(1 - u, u))
 
     # Split training data into training and validation
     (train, valid) = util.train_test_valid_split(label.X, label.y, split=(0.8, 0.2), U = unlabeled.X) # TODO specify validation/train split?

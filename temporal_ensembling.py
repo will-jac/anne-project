@@ -8,8 +8,6 @@ import tensorflow as tf
 
 import tensorflow_addons as tfa
 
-from tensorflow.keras import backend as K
-
 from generator import training_generator
 
 # for more information about how to use the loss / gradients defined here, see
@@ -21,8 +19,8 @@ def temporal_ensembling_loss(X, y, U, model, unsupervised_weight, ensembling_tar
 
     pred = tf.concat([z_X, z_U], 0)
 
-    return pred, K.sum(tf.keras.losses.categorical_crossentropy(y, z_X)) + \
-            unsupervised_weight * K.sum(tf.keras.losses.mean_squared_error(ensembling_targets, pred))
+    return pred, tf.reduce_sum(tf.keras.losses.categorical_crossentropy(y, z_X)) + \
+            unsupervised_weight * tf.reduce_sum(tf.keras.losses.mean_squared_error(ensembling_targets, pred))
 
 def temporal_ensembling_gradients(X, y, U, model, unsupervised_weight, ensembling_targets):
 
@@ -38,23 +36,26 @@ def pi_model_loss(X, y, U, pi_model, unsupervised_weight):
     z_labeled = pi_model(X)
     z_labeled_i = pi_model(X)
 
-    z_unlabeled = pi_model(U)
-    z_unlabeled_i = pi_model(U)
-
     # Loss = supervised loss + unsup loss of labeled sample + unsup loss unlabeled sample
-
+    # print(X.shape, z_labeled.shape, U.shape)
+    # print('y',y)
+    # print('pred',z_labeled)
+    # print(tf.keras.losses.categorical_crossentropy(y, z_labeled))
+    # print(tf.keras.losses.mean_squared_error(z_labeled, z_labeled_i))
+    # print(tf.keras.losses.mean_squared_error(z_unlabeled, z_unlabeled_i))
     # print(z_labeled.shape, z_labeled_i.shape, y.shape, z_unlabeled.shape, z_unlabeled_i.shape)
-    return K.sum(tf.keras.losses.categorical_crossentropy(y, z_labeled)) + \
-        unsupervised_weight * (
-            K.sum(tf.keras.losses.mean_squared_error(z_labeled, z_labeled_i)) + \
-            K.sum(tf.keras.losses.mean_squared_error(z_unlabeled, z_unlabeled_i))
-        )
+    return tf.keras.losses.categorical_crossentropy(y, z_labeled) + unsupervised_weight * (
+        tf.reduce_mean(tf.keras.losses.mean_squared_error(z_labeled, z_labeled_i)) +
+        tf.reduce_mean(tf.keras.losses.mean_squared_error(pi_model(U), pi_model(U)))
+    )
 
 def pi_model_gradients(X, y, U, pi_model, unsupervised_weight):
 
     with tf.GradientTape() as tape:
-        loss_value = pi_model_loss(X, y, U, pi_model, unsupervised_weight)
-    return loss_value, tape.gradient(loss_value, pi_model.trainable_weights)
+        pi_loss = pi_model_loss(X, y, U, pi_model, unsupervised_weight)
+        # print('pi model loss:', pi_loss)
+        
+    return pi_loss, tape.gradient(pi_loss, pi_model.trainable_weights)
 
 # Ramps the value of the weight and learning rate in the first 80 epochs, according to the paper
 def ramp_up_function(epoch, epoch_with_max_rampup=80):
@@ -234,7 +235,7 @@ class PiModel():
 
         # define a data generator
         self.num_batches = int((train_data.X.shape[0]  + train_data.U.shape[0]) / self.batch_size)
-        generator = training_generator(train_data.X, train_data.y, train_data.U, train_data.X.shape[0] / train_data.U.shape[0], self.batch_size)
+        generator = training_generator(train_data.X, train_data.y, train_data.U, train_data.X.shape[0] / (train_data.X.shape[0] + train_data.U.shape[0]), self.batch_size)
 
         # custom training loop
 
@@ -265,10 +266,9 @@ class PiModel():
                 Xi, Ui = next(generator)
                 X, y, U = train_data.X[Xi], train_data.y[Xi], train_data.U[Ui]
 
-                # this basically evals the model
-                loss_val, grads = self.gradients(
-                    X, y, U, self.model, unsupervised_weight
-                )
+                # this basically evals the model + updates the model
+                loss_val, grads = self.gradients(X, y, U, self.model, unsupervised_weight)
+
                 self.opt.apply_gradients(zip(grads, self.model.trainable_weights))
 
                 # compute metrics...
@@ -278,14 +278,24 @@ class PiModel():
                 epoch_loss_avg(loss_val)
                 epoch_accuracy(tf.argmax(self.model(X), 1), tf.argmax(y, 1))
 
-            # end of training batch - do a validation batch
-            y_validation_predictions = self.model(validation_data.X, training=False)
+                # end of training batch - do a validation batch
+                y_validation_predictions = self.model(validation_data.X, training=False)
 
-            epoch_loss_avg_validation(tf.compat.v1.losses.softmax_cross_entropy(validation_data.y, y_validation_predictions))
-            epoch_accuracy_validation(tf.argmax(y_validation_predictions, 1), tf.argmax(validation_data.y, 1))
+                epoch_loss_avg_validation(tf.keras.losses.categorical_crossentropy(validation_data.y, y_validation_predictions))
+                epoch_accuracy_validation(tf.argmax(y_validation_predictions, 1), tf.argmax(validation_data.y, 1))
+
+                # If the accuracy of validation improves save a checkpoint
+                if best_val_accuracy < epoch_accuracy_validation.result():
+                    best_val_accuracy = epoch_accuracy_validation.result()
+                    checkpoint = tf.train.Checkpoint(optimizer=self.opt, model=self.model)
+                    checkpoint.save(file_prefix=self.checkpoint_directory)
+
+                if loss_val is math.nan:
+                    print('loss is nan!!', model(X), y, model(U))
+                    return
 
             print("Epoch {:03d}/{:03d}: Train Loss: {:9.7f}, Train Accuracy: {:02.6%}, Validation Loss: {:9.7f}, "
-              "Validation Accuracy: {:02.6%}, lr={:.9f}, unsupervised weight={:5.3f}, beta1={:.9f}".format(
+            "Validation Accuracy: {:02.6%}, lr={:.9f}, unsupervised weight={:5.3f}, beta1={:.9f}".format(
                 epoch+1,
                 self.epochs,
                 epoch_loss_avg.result(),
@@ -296,12 +306,6 @@ class PiModel():
                 unsupervised_weight,
                 self.beta_1.numpy()
             ))
-
-            # If the accuracy of validation improves save a checkpoint
-            if best_val_accuracy < epoch_accuracy_validation.result():
-                best_val_accuracy = epoch_accuracy_validation.result()
-                checkpoint = tf.train.Checkpoint(optimizer=self.opt, model=self.model)
-                checkpoint.save(file_prefix=self.checkpoint_directory)
 
         print('\nTrain Ended! Best Validation accuracy = {}\n'.format(best_val_accuracy))
         # Load the best model
