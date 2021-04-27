@@ -37,13 +37,11 @@ def execute_exp(args):
         return
 
     if args.method in models.models:
-        model = models.models[args.method]
+        # construct the model
+        model = models.models[args.method](base_model, args)
     else:
         print('error: model', args.method, 'not found') 
         return
-
-    # construct the model
-    model = model(base_model, args)
 
     # run the tets
     results = test(model)
@@ -59,6 +57,14 @@ def execute_exp(args):
         pkl.dump(out, f)
 
 if __name__ == "__main__":
+
+    # tensorflow stuff - limit ourselves to GPU memory
+
+    import tensorflow as tf
+    physical_devices = tf.config.list_physical_devices('GPU') 
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
+
     parser = create_parser()
     args = parser.parse_args()
     execute_exp(args)

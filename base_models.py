@@ -32,9 +32,9 @@ class Cifar10Model(tf.keras.Model):
                 filters=128, 
                 kernel_size=[3, 3],
                 padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
                 kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1)
+                bias_initializer=tf.keras.initializers.constant(0.1),
+                activation='relu'
             )
         )
         self._conv1b = MeanOnlyWeightNormalization(
@@ -42,18 +42,19 @@ class Cifar10Model(tf.keras.Model):
                 filters=128, 
                 kernel_size=[3, 3],
                 padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
+                activation='relu',
             )
         )
         self._conv1c = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=128, 
                 kernel_size=[3, 3],
-                padding="same", activation=tf.keras.layers.LeakyReLU(alpha=0.1),
+                padding="same",
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
+                activation='relu',
             )
         )
         self._pool1 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
@@ -63,9 +64,9 @@ class Cifar10Model(tf.keras.Model):
                 filters=256, 
                 kernel_size=[3, 3],
                 padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
+                activation='relu'
             )
         )
         self._conv2b = MeanOnlyWeightNormalization(
@@ -73,18 +74,18 @@ class Cifar10Model(tf.keras.Model):
                 filters=256, 
                 kernel_size=[3, 3],
                 padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
+                activation='relu'
             )
         )
         self._conv2c = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=256, kernel_size=[3, 3],
                 padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
+                activation='relu'
             )
         )
         self._pool2 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
@@ -92,9 +93,10 @@ class Cifar10Model(tf.keras.Model):
         self._conv3a = MeanOnlyWeightNormalization(
             tf.keras.layers.Conv2D(
                 filters=512, kernel_size=[3, 3],
-                padding="valid", activation=tf.keras.layers.LeakyReLU(alpha=0.1),
+                padding="same",
                 kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1)
+                bias_initializer=tf.keras.initializers.constant(0.1),
+                activation='relu'
             )
         )
         self._conv3b = MeanOnlyWeightNormalization(
@@ -102,9 +104,9 @@ class Cifar10Model(tf.keras.Model):
                 filters=256, 
                 kernel_size=[1, 1],
                 padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
                 kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1)
+                bias_initializer=tf.keras.initializers.constant(0.1),
+                activation='relu'
             )
         )
         self._conv3c = MeanOnlyWeightNormalization(
@@ -112,9 +114,9 @@ class Cifar10Model(tf.keras.Model):
                 filters=128, 
                 kernel_size=[1, 1],
                 padding="same", 
-                activation=tf.keras.layers.LeakyReLU(alpha=0.1),
                 kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1)
+                bias_initializer=tf.keras.initializers.constant(0.1),
+                activation='relu'
             )
         )
         self._dense = MeanOnlyWeightNormalization(
@@ -126,14 +128,14 @@ class Cifar10Model(tf.keras.Model):
             )
         )
 
-    def call(self, input, training=True):
+    def call(self, inputs, training=True):
         
         # add the stochastic augmentation to the input if we're training
         if training and self.do_image_augmentation:
-            h = gaussian_noise(input, 0.15)
+            h = gaussian_noise(inputs, 0.15)
             h = image_augmentation(h)
         else:
-            h = input
+            h = inputs
         
         # pass the (augmented) input through the model
         h = self._conv1a(h, training)
@@ -201,9 +203,5 @@ class Cifar10Model(tf.keras.Model):
         # now, unfreeze everything
         model.trainable = True
 
-
-        
-
-
-
+     
 # define other models for other problems here

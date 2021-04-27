@@ -13,8 +13,8 @@ def training_generator(X, y, U, labeled_unlabeled_ratio, batch_size=10):
     
     while True:
         # Randomly select a set of example indices
-        Xi = random.choices(range(X.shape[0]), k=batch_size*labeled_unlabeled_ratio)
-        Ui = random.choices(range(U.shape[0]), k=batch_size*(1/labeled_unlabeled_ratio))
+        Xi = random.choices(range(X.shape[0]), k=int(batch_size*labeled_unlabeled_ratio))
+        Ui = random.choices(range(U.shape[0]), k=int(batch_size*(1/labeled_unlabeled_ratio)))
 
         # The generator will produce a pair of return values: one for inputs and one for outputs
         yield(Xi, Ui)

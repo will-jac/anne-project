@@ -61,6 +61,7 @@ def cifar10_test (model, u=0.8):
     (train, valid) = util.train_test_valid_split(label.X, label.y, split=(0.8, 0.2), U = unlabeled.X) # TODO specify validation/train split?
 
     # TODO One-hot encode cifar_10.y_train and cifar_10.y_test?
+    ## ^^ yes. Done.
 
     # Train model using training and validation sets
     model.fit(train, valid)

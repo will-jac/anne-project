@@ -8,6 +8,8 @@ import tensorflow as tf
 
 import tensorflow_addons as tfa
 
+from tensorflow.keras import backend as K
+
 from generator import training_generator
 
 # for more information about how to use the loss / gradients defined here, see
@@ -19,8 +21,8 @@ def temporal_ensembling_loss(X, y, U, model, unsupervised_weight, ensembling_tar
 
     pred = tf.concat([z_X, z_U], 0)
 
-    return pred, tf.compat.v1.losses.softmax_cross_entropy(y, z_X) + \
-            unsupervised_weight * (tf.keras.losses.mean_squared_error(ensembling_targets, pred))
+    return pred, K.sum(tf.keras.losses.categorical_crossentropy(y, z_X)) + \
+            unsupervised_weight * K.sum(tf.keras.losses.mean_squared_error(ensembling_targets, pred))
 
 def temporal_ensembling_gradients(X, y, U, model, unsupervised_weight, ensembling_targets):
 
@@ -30,7 +32,7 @@ def temporal_ensembling_gradients(X, y, U, model, unsupervised_weight, ensemblin
             model, unsupervised_weight, ensembling_targets
         )
 
-    return ensemble_precitions, loss_value, tape.gradient(loss_value, model.variables)
+    return ensemble_precitions, loss_value, tape.gradient(loss_value, model.trainable_weights)
 
 def pi_model_loss(X, y, U, pi_model, unsupervised_weight):
     z_labeled = pi_model(X)
@@ -40,17 +42,19 @@ def pi_model_loss(X, y, U, pi_model, unsupervised_weight):
     z_unlabeled_i = pi_model(U)
 
     # Loss = supervised loss + unsup loss of labeled sample + unsup loss unlabeled sample
-    return tf.compat.v1.losses.softmax_cross_entropy(y, z_labeled) + \
+
+    # print(z_labeled.shape, z_labeled_i.shape, y.shape, z_unlabeled.shape, z_unlabeled_i.shape)
+    return K.sum(tf.keras.losses.categorical_crossentropy(y, z_labeled)) + \
         unsupervised_weight * (
-            tf.keras.losses.mean_squared_error(z_labeled, z_labeled_i) +
-            tf.keras.losses.mean_squared_error(z_unlabeled, z_unlabeled_i)
+            K.sum(tf.keras.losses.mean_squared_error(z_labeled, z_labeled_i)) + \
+            K.sum(tf.keras.losses.mean_squared_error(z_unlabeled, z_unlabeled_i))
         )
 
 def pi_model_gradients(X, y, U, pi_model, unsupervised_weight):
 
     with tf.GradientTape() as tape:
         loss_value = pi_model_loss(X, y, U, pi_model, unsupervised_weight)
-    return loss_value, tape.gradient(loss_value, pi_model.variables)
+    return loss_value, tape.gradient(loss_value, pi_model.trainable_weights)
 
 # Ramps the value of the weight and learning rate in the first 80 epochs, according to the paper
 def ramp_up_function(epoch, epoch_with_max_rampup=80):
@@ -87,11 +91,12 @@ class TemporalEnsembling():
         
         self.max_lrate = max_lrate
 
-        self.lrate = tf.Variable(max_lrate)
+        self.lrate = tf.Variable(max_lrate, trainable=False)
 
         self.alpha = alpha
 
-        self.beta_1 = tf.Variable(beta_1[0])
+        self.beta_1 = tf.Variable(beta_1[0], trainable=False)
+        self.beta_1_start = beta_1[0]
         self.beta_1_end = beta_1[1]
         self.beta_2 = beta_2
 
@@ -126,7 +131,7 @@ class TemporalEnsembling():
                 unsupervised_weight = self.max_unsupervised_weight * rampup_value
 
             self.lrate.assign(rampup_value * rampdown_value * self.max_lrate)
-            self.beta_1.assign(rampdown_value * self.beta_1[0] + (1.0 - rampdown_value) * self.beta_1[1])
+            self.beta_1.assign(rampdown_value * self.beta_1_start + (1.0 - rampdown_value) * self.beta_1_end)
 
             epoch_loss_avg = tf.keras.metrics.Mean()
             epoch_accuracy = tf.keras.metrics.Accuracy()
@@ -212,6 +217,7 @@ class PiModel():
         self.alpha = alpha
 
         self.beta_1 = tf.Variable(beta_1[0])
+        self.beta_1_start = beta_1[0]
         self.beta_1_end = beta_1[1]
         self.beta_2 = beta_2
 
@@ -221,17 +227,23 @@ class PiModel():
 
         self.loss = pi_model_loss
         self.gradients = pi_model_gradients
-        self.model = model
+        self.model = model()
 
     def fit(self, train_data, validation_data):
         # TODO: add n_ins, n_outs
 
         # define a data generator
-        self.num_batches = (train_data.X.shape[0]  + train_data.U.shape[0]) // self.batch_size 
+        self.num_batches = int((train_data.X.shape[0]  + train_data.U.shape[0]) / self.batch_size)
         generator = training_generator(train_data.X, train_data.y, train_data.U, train_data.X.shape[0] / train_data.U.shape[0], self.batch_size)
 
         # custom training loop
+
+        best_val_accuracy = 0.0
+
+        print('training!')
+
         for epoch in range(self.epochs):
+            print('epoch:', epoch)
             rampdown_value = ramp_down_function(epoch, self.epochs)
             rampup_value = ramp_up_function(epoch)
 
@@ -241,23 +253,23 @@ class PiModel():
                 unsupervised_weight = self.max_unsupervised_weight * rampup_value
 
             self.lrate.assign(rampup_value * rampdown_value * self.max_lrate)
-            self.beta_1.assign(rampdown_value * self.beta_1[0] + (1.0 - rampdown_value) * self.beta_1[1])
+            self.beta_1.assign(rampdown_value * self.beta_1_start + (1.0 - rampdown_value) * self.beta_1_end)
 
             epoch_loss_avg = tf.keras.metrics.Mean()
             epoch_accuracy = tf.keras.metrics.Accuracy()
             epoch_loss_avg_validation = tf.keras.metrics.Mean()
             epoch_accuracy_validation = tf.keras.metrics.Accuracy()
-            
-            Xi, Ui = next(generator)
-            X, y, U = train_data.X[Xi], train_data.y[Xi], train_data.U[Ui]
 
             for _ in range(self.num_batches):
 
+                Xi, Ui = next(generator)
+                X, y, U = train_data.X[Xi], train_data.y[Xi], train_data.U[Ui]
+
                 # this basically evals the model
-                current_outputs, loss_val, grads = self.gradients(
+                loss_val, grads = self.gradients(
                     X, y, U, self.model, unsupervised_weight
                 )
-                self.opt.apply_gradients(zip(grads, self.model.variables))
+                self.opt.apply_gradients(zip(grads, self.model.trainable_weights))
 
                 # compute metrics...
                 epoch_loss_avg(loss_val)

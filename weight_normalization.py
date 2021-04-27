@@ -70,7 +70,7 @@ class MeanOnlyWeightNormalization(tf.keras.layers.Wrapper):
                 "WeightNormalization: Using `data_init=True` with RNNs "
                 "is advised against by the paper. Use `data_init=False`."
             )
-        self.mean_only_batch_norm = mean_only_batch
+        self.mean_only_batch_norm = mean_only_batch_norm
         self.mean_only_batch_norm_momentum = mean_only_batch_norm_momentum
 
     def build(self, input_shape):

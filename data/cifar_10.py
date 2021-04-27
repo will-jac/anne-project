@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 import os
 
-def load_cifar_10():
+def load_cifar_10(one_hot = True):
 
     # Function to load each file
     def load_cifar_batches(filenames):
@@ -21,6 +21,9 @@ def load_cifar_10():
     X_train, y_train = load_cifar_batches(['data_batch_%d' % i for i in (1, 2, 3, 4, 5)])
     X_test, y_test = load_cifar_batches('test_batch')
 
+    if one_hot:
+        y_train = np.eye(10)[y_train.reshape(-1)]
+        y_test = np.eye(10)[y_test.reshape(-1)]
     # We have our train test split, now we just need to seperate X_train, y_train into X_train, y_train, U_train...
 
     return X_train, y_train, X_test, y_test
