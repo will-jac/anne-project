@@ -24,6 +24,14 @@ def percent_wrong(predict, true):
             wrong += 1
     return 1.0 * wrong / n
 
+def label_unlabel_split(X, y, num_lab, shuffle=True):
+    if shuffle:
+        permutation = np.random.permutation(X.shape[0])
+        # Shuffle the arrays by giving the permutation in the square brackets.
+        X, y = X[permutation], y[permutation]
+
+    return Data(X[0:num_lab], y[0:num_lab], X[num_lab:])
+
 def train_test_valid_split(X, y, split=(0.8, 0.1, 0.1), shuffle=True, U=None):
     assert sum(split) == 1
     assert X.shape[0] == y.shape[0]

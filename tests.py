@@ -7,6 +7,7 @@ import data.cifar_10 as cifar_10
 
 
 # other things
+import tensorflow as tf
 from sklearn.metrics import roc_curve, plot_roc_curve
 
 # All test functions need to 
@@ -47,7 +48,7 @@ def adult_test(model, u=0.8):
 
     return acc
 
-def cifar10_test (model, u=0.8):
+def cifar10_test (model, num_label=4000):
     # Load in training and test data, done by including cifar_10.py
     X_train, y_train, X_test, y_test = cifar_10.load_cifar_10()
 
@@ -55,12 +56,12 @@ def cifar10_test (model, u=0.8):
     test = util.Data(X_test, y_test, None)
     
     # Split training test into labeled and unlabeled
-    (label, unlabeled) = util.train_test_valid_split(X_train, y_train, split=(1 - u, u))
+    train = util.label_unlabel_split(X_train, y_train, num_label)
 
     # Split training data into training and validation
-    (train, valid) = util.train_test_valid_split(label.X, label.y, split=(0.8, 0.2), U = unlabeled.X) # TODO specify validation/train split?
+    (train, valid) = util.train_test_valid_split(train.X, train.y, split=(0.9, 0.1), U = train.X) # TODO specify validation/train split?
 
-    # TODO One-hot encode cifar_10.y_train and cifar_10.y_test?
+    # One-hot encode cifar_10.y_train and cifar_10.y_test?
     ## ^^ yes. Done.
 
     # Train model using training and validation sets
@@ -70,10 +71,10 @@ def cifar10_test (model, u=0.8):
     y_pred = model.predict(test.X)
     # y_pred = y_pred.ravel() # not necessary?
 
-    # TODO if outputs are one-hot encoded, need to decode for correctness test
-    wrong = util.percent_wrong(y_pred, test.y)
-    acc = 1.0 - wrong
-    print(model.name, ' : acc:', acc)
+    # if outputs are one-hot encoded, need to decode for correctness test
+    # wrong = util.percent_wrong(y_pred, test.y)
+    # acc = 1.0 - wrong
+    print(model.name, ' : acc:', tf.keras.metrics.categorical_accuracy(test.y, y_pred))
 
     return acc    
 
