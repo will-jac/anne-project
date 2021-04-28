@@ -30,7 +30,8 @@ class Cifar10Model(tf.keras.Model):
         ## TODO: check relu usage. I changed to tanh because that's what's more typically used
 
         activation = 'tanh'
-        self._conv1a = tf.keras.layers.Conv2D(
+        self._conv1a = tfa.layers.WeightNormalization(
+            tf.keras.layers.Conv2D(
                 filters=128, 
                 kernel_size=[3, 3],
                 padding="same", 
@@ -38,7 +39,9 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1),
                 activation=activation
             )
-        self._conv1b = tf.keras.layers.Conv2D(
+        )
+        self._conv1b = tfa.layers.WeightNormalization(
+            tf.keras.layers.Conv2D(
                 filters=128, 
                 kernel_size=[3, 3],
                 padding="same", 
@@ -46,7 +49,9 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1),
                 activation=activation,
             )
-        self._conv1c = tf.keras.layers.Conv2D(
+        )
+        self._conv1c = tfa.layers.WeightNormalization( 
+            tf.keras.layers.Conv2D(
                 filters=128, 
                 kernel_size=[3, 3],
                 padding="same",
@@ -54,9 +59,11 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1),
                 activation=activation,
             )
+        )
         self._pool1 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
         self._dropout1 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
-        self._conv2a = tf.keras.layers.Conv2D(
+        self._conv2a = tfa.layers.WeightNormalization(
+            tf.keras.layers.Conv2D(
                 filters=256, 
                 kernel_size=[3, 3],
                 padding="same", 
@@ -64,7 +71,9 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1),
                 activation=activation
             )
-        self._conv2b = tf.keras.layers.Conv2D(
+        )
+        self._conv2b = tfa.layers.WeightNormalization(
+            tf.keras.layers.Conv2D(
                 filters=256, 
                 kernel_size=[3, 3],
                 padding="same", 
@@ -72,23 +81,29 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1),
                 activation=activation
             )
-        self._conv2c = tf.keras.layers.Conv2D(
+        )
+        self._conv2c = tfa.layers.WeightNormalization(
+            tf.keras.layers.Conv2D(
                 filters=256, kernel_size=[3, 3],
                 padding="same", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
                 activation=activation
             )
+        )
         self._pool2 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
         self._dropout2 = tf.keras.layers.Dropout(0.5)
-        self._conv3a = tf.keras.layers.Conv2D(
+        self._conv3a = tfa.layers.WeightNormalization(
+            tf.keras.layers.Conv2D(
                 filters=512, kernel_size=[3, 3],
                 padding="same",
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
                 activation=activation
             )
-        self._conv3b = tf.keras.layers.Conv2D(
+        )
+        self._conv3b = tfa.layers.WeightNormalization(
+            tf.keras.layers.Conv2D(
                 filters=256, 
                 kernel_size=[1, 1],
                 padding="same", 
@@ -96,7 +111,9 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1),
                 activation=activation
             )
-        self._conv3c = tf.keras.layers.Conv2D(
+        )
+        self._conv3c = tfa.layers.WeightNormalization(
+            tf.keras.layers.Conv2D(
                 filters=128, 
                 kernel_size=[1, 1],
                 padding="same", 
@@ -104,12 +121,15 @@ class Cifar10Model(tf.keras.Model):
                 bias_initializer=tf.keras.initializers.constant(0.1),
                 activation=activation
             )
-        self._dense = tf.keras.layers.Dense(
+        )
+        self._dense = tfa.layers.WeightNormalization(
+            tf.keras.layers.Dense(
                 units=10, 
                 activation='sigmoid',## TODO: check what this should be - I changed to sigmoid bc that makes more sense with crossentropy
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1)
             )
+        )
 
         self._layers = [
             [self._conv1a, self._conv1b, self._conv1c, self._pool1, self._dropout1],

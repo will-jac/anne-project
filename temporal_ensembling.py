@@ -36,6 +36,8 @@ def pi_model_loss(X, y, U, pi_model, unsupervised_weight):
     z_labeled = pi_model(X)
     z_labeled_i = pi_model(X)
 
+    z_unlabeled = pi_model(U)
+    z_unlabeled_i = pi_model(U)
     # Loss = supervised loss + unsup loss of labeled sample + unsup loss unlabeled sample
     # print(X.shape, z_labeled.shape, U.shape)
     # print('y',y)
@@ -46,7 +48,7 @@ def pi_model_loss(X, y, U, pi_model, unsupervised_weight):
     # print(z_labeled.shape, z_labeled_i.shape, y.shape, z_unlabeled.shape, z_unlabeled_i.shape)
     return tf.keras.losses.categorical_crossentropy(y, z_labeled) + unsupervised_weight * (
         tf.reduce_mean(tf.keras.losses.mean_squared_error(z_labeled, z_labeled_i)) +
-        tf.reduce_mean(tf.keras.losses.mean_squared_error(pi_model(U), pi_model(U)))
+        tf.reduce_mean(tf.keras.losses.mean_squared_error(z_unlabeled, z_unlabeled_i))
     )
 
 def pi_model_gradients(X, y, U, pi_model, unsupervised_weight):
@@ -82,7 +84,8 @@ class TemporalEnsembling():
     def __init__(self, model,
             epochs, batch_size, max_lrate=0.0002,
             alpha=0.6, beta_1=[0.9,0.5], beta_2=0.98,
-            max_unsupervised_weight=0.5
+            max_unsupervised_weight=0.5,
+            use_image_augmentation=False
         ):
 
         self.checkpoint_directory = './checkpoints'
@@ -107,7 +110,7 @@ class TemporalEnsembling():
 
         self.loss = temporal_ensembling_loss
         self.gradients = temporal_ensembling_gradients
-        self.model = model
+        self.model = model(do_image_augmentation = use_image_augmentation)
 
     def fit(self, train_data, validation_data):
         # TODO: add n_ins, n_outs
@@ -203,7 +206,8 @@ class PiModel():
     def __init__(self, model,
             epochs, batch_size, max_lrate=0.0002,
             alpha=0.6, beta_1=[0.9,0.5], beta_2=0.98,
-            max_unsupervised_weight=0.5
+            max_unsupervised_weight=0.5,
+            use_image_augmentation=False
         ):
 
         self.checkpoint_directory = './checkpoints'
@@ -228,7 +232,9 @@ class PiModel():
 
         self.loss = pi_model_loss
         self.gradients = pi_model_gradients
-        self.model = model()
+        self.model = model(do_image_augmentation = use_image_augmentation)
+
+        print('init pi model', use_image_augmentation, epochs, batch_size)
 
     def fit(self, train_data, validation_data):
         # TODO: add n_ins, n_outs
@@ -244,7 +250,6 @@ class PiModel():
         print('training!')
 
         for epoch in range(self.epochs):
-            print('epoch:', epoch)
             rampdown_value = ramp_down_function(epoch, self.epochs)
             rampup_value = ramp_up_function(epoch)
 
@@ -256,33 +261,43 @@ class PiModel():
             self.lrate.assign(rampup_value * rampdown_value * self.max_lrate)
             self.beta_1.assign(rampdown_value * self.beta_1_start + (1.0 - rampdown_value) * self.beta_1_end)
 
-            epoch_loss_avg = tf.keras.metrics.Mean()
-            epoch_accuracy = tf.keras.metrics.Accuracy()
-            epoch_loss_avg_validation = tf.keras.metrics.Mean()
-            epoch_accuracy_validation = tf.keras.metrics.Accuracy()
+            epoch_loss_avg = 0
+            epoch_accuracy = tf.keras.metrics.CategoricalAccuracy()
+            epoch_loss_avg_validation = 0
+            epoch_accuracy_validation = tf.keras.metrics.CategoricalAccuracy()
+
+            # print('epoch:', epoch, 'unsupervised_weight:', unsupervised_weight)
 
             for _ in range(self.num_batches):
 
                 Xi, Ui = next(generator)
+                
                 X, y, U = train_data.X[Xi], train_data.y[Xi], train_data.U[Ui]
 
                 # this basically evals the model + updates the model
                 loss_val, grads = self.gradients(X, y, U, self.model, unsupervised_weight)
 
+                if tf.math.is_nan(tf.reduce_mean(loss_val)):
+                    print(loss_val, Xi, Ui)
+                # try:
+                #     print('eval', Xi[0], Ui[0], len(Xi), len(Ui), tf.reduce_mean(loss_val)) 
+                # except:
+                #     print('eval fail..', len(Xi), len(Ui), Xi, Ui)
+
                 self.opt.apply_gradients(zip(grads, self.model.trainable_weights))
 
                 # compute metrics...
-                epoch_loss_avg(loss_val)
-                epoch_accuracy(tf.argmax(self.model(X), 1), tf.argmax(y, 1))
-
-                epoch_loss_avg(loss_val)
-                epoch_accuracy(tf.argmax(self.model(X), 1), tf.argmax(y, 1))
+                epoch_loss_avg += tf.reduce_mean(loss_val)
+                # epoch_accuracy(tf.argmax(self.model(X), 1), tf.argmax(y, 1))
+                epoch_accuracy(self.model(X, training=False), y)
 
                 # end of training batch - do a validation batch
                 y_validation_predictions = self.model(validation_data.X, training=False)
 
-                epoch_loss_avg_validation(tf.keras.losses.categorical_crossentropy(validation_data.y, y_validation_predictions))
-                epoch_accuracy_validation(tf.argmax(y_validation_predictions, 1), tf.argmax(validation_data.y, 1))
+                loss_validation_val = tf.keras.losses.categorical_crossentropy(validation_data.y, y_validation_predictions)
+                epoch_loss_avg_validation = tf.reduce_mean(loss_validation_val)
+                # epoch_accuracy_validation(tf.argmax(y_validation_predictions, 1), tf.argmax(validation_data.y, 1))
+                epoch_accuracy_validation(y_validation_predictions, validation_data.y)
 
                 # If the accuracy of validation improves save a checkpoint
                 if best_val_accuracy < epoch_accuracy_validation.result():
@@ -290,17 +305,15 @@ class PiModel():
                     checkpoint = tf.train.Checkpoint(optimizer=self.opt, model=self.model)
                     checkpoint.save(file_prefix=self.checkpoint_directory)
 
-                if loss_val is math.nan:
-                    print('loss is nan!!', model(X), y, model(U))
-                    return
+                # print('  ', loss_val, epoch_loss_avg, loss_validation_val, epoch_loss_avg_validation)
 
             print("Epoch {:03d}/{:03d}: Train Loss: {:9.7f}, Train Accuracy: {:02.6%}, Validation Loss: {:9.7f}, "
             "Validation Accuracy: {:02.6%}, lr={:.9f}, unsupervised weight={:5.3f}, beta1={:.9f}".format(
-                epoch+1,
+                epoch,
                 self.epochs,
-                epoch_loss_avg.result(),
+                epoch_loss_avg,
                 epoch_accuracy.result(),
-                epoch_loss_avg_validation.result(),
+                epoch_loss_avg_validation,
                 epoch_accuracy_validation.result(),
                 self.lrate.numpy(),
                 unsupervised_weight,

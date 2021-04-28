@@ -32,6 +32,7 @@ class PseudoLabels():
 
     def __init__(self, model, lrate, epochs, batch_size,
             patience=500, min_delta=0.0,
+            use_image_augmentation=False,
             use_dae=False, pretrain_lrate=0.001, pretrain_epochs=100,
             af = 3.0, T1 = 200, T2 = 800
         ):
@@ -39,9 +40,7 @@ class PseudoLabels():
         self.lrate = lrate
         self.epochs = int(epochs)
         self.batch_size = int(batch_size)
-        print('batch_size', batch_size)
         self.use_dae = use_dae
-        print('using dae:', self.use_dae)
         self.pretrain_epochs = pretrain_epochs
         self.pretrain_lrate = pretrain_lrate
 
@@ -61,7 +60,7 @@ class PseudoLabels():
 
         self.unlabeled = -1.0
 
-        self.model = model(do_image_augmentation = False)
+        self.model = model(do_image_augmentation = use_image_augmentation)
 
         ## for scheduling alpha
         self.af = af

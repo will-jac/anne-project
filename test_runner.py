@@ -20,12 +20,12 @@ def create_parser():
     parser.add_argument('-lrate', type=float, default=0.001, help='learning rate')
     parser.add_argument('-batch_size', type=int, default=100, help='batch size')
     parser.add_argument('-epochs', type=float, default=1000, help='number of epochs')
+    parser.add_argument('-use_image_augmentation', default=False, action='store_true', help='flag to use image augmentation or not')
 
-    parser.add_argument('-activation', type=str, default='relu', help='hidden activation function'),
-    parser.add_argument('-out_activation', type=str, default='softmax', help='output activation function')
+    parser.add_argument('-activation', type=str, default='tanh', help='hidden activation function'),
+    parser.add_argument('-out_activation', type=str, default='sigmoid', help='output activation function')
     parser.add_argument('-dropout', type=float, default=0.5, help='dropout probability')
     parser.add_argument('-use_dae', default=False, action='store_true', help='flag to use DAE or not (PL)')
-
     return parser
 
 def execute_exp(args):

@@ -12,9 +12,14 @@ models = {
             use_dae=args.use_dae
         ),
     'pi' : lambda model, args : PiModel(model, 
-            args.epochs, args.batch_size),
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            use_image_augmentation=args.use_image_augmentation
+        ),
     'te' : lambda model, args : TemporalEnsembling(model, 
-            args.epochs, args.batch_size),
-
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            use_image_augmentation=args.use_image_augmentation
+        ),
     'none' : lambda model, args: print('no model! args passed:', args)
 }
