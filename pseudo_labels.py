@@ -32,13 +32,16 @@ class PseudoLabels():
 
     def __init__(self, model, lrate, epochs, batch_size,
             patience=500, min_delta=0.0,
-            use_dae=True, pretrain_lrate=0.001, pretrain_epochs=100,
-            af = 3, T1 = 200, T2 = 800
+            use_dae=False, pretrain_lrate=0.001, pretrain_epochs=100,
+            af = 3.0, T1 = 200, T2 = 800
         ):
         # store params
         self.lrate = lrate
-        self.epochs = epochs
+        self.epochs = int(epochs)
+        self.batch_size = int(batch_size)
+        print('batch_size', batch_size)
         self.use_dae = use_dae
+        print('using dae:', self.use_dae)
         self.pretrain_epochs = pretrain_epochs
         self.pretrain_lrate = pretrain_lrate
 
@@ -50,22 +53,26 @@ class PseudoLabels():
             )
         ]
 
+        self.metrics = [
+            keras.metrics.CategoricalAccuracy(),
+        ]
+
         self.name='pseudo_labels'
 
-        self.unlabeled = -1
+        self.unlabeled = -1.0
 
-        self.model = model
+        self.model = model(do_image_augmentation = False)
 
         ## for scheduling alpha
         self.af = af
         self.T1 = T1
         self.T2 = T2
 
-        self.alpha = 0 # initially
+        self.alpha = 0.0 # initially
 
     def alpha_schedule(self, epoch_num):
         if epoch_num < self.T1:
-            return 0
+            return 0.0
         if epoch_num < self.T2:
             return (epoch_num - self.T1) / (self.T2 - self.T1) * self.af
         else:
@@ -114,7 +121,7 @@ class PseudoLabels():
             label_shape = tuple(data.U.shape[0])
         else:
             label_shape = (data.U.shape[0], data.y.shape[1])
-        pseudo_labels = -1 * np.ones(label_shape)
+        pseudo_labels = self.unlabeled * np.ones(label_shape, dtype=float)
 
         return Data(
             np.append(data.X, data.U, axis=0),
@@ -124,8 +131,13 @@ class PseudoLabels():
 
     def fit(self, train_data, validation_data):
         print('train data:', train_data.X.shape, train_data.y.shape, train_data.U.shape)
-
+        u = train_data.U.shape[0]
         train_data = self.prelabel_data(train_data)
+
+        # print(train_data.X[u:u+2])
+        # print(train_data.y[u:u+2])
+        # print(train_data.y[0:2])
+        
 
         print('prelabeled data:', train_data.X.shape, train_data.y.shape)
 
@@ -152,18 +164,27 @@ class PseudoLabels():
             self.model.pretrain(dae_train, dae_valid, self.pretrain_epochs, self.pretrain_lrate)
 
         print('final model:')
-        self.model.summary()
+        # self.model.summary()
 
         # compile the model
-        self.model.compile(loss=self.pl_loss, optimizer=tf.keras.optimizers.Adam(lr=self.lrate))
+        self.model.compile(
+            loss=self.pl_loss, 
+            optimizer=tf.keras.optimizers.Adam(lr=self.lrate),
+            metrics=self.metrics
+        )
 
         # now, do the training (pseudo-labels & conditional cross-entropy)
 
         print('training on:', train_data.X.shape, train_data.y.shape)
 
-        history = self.model.fit(train_data.X, train_data.y, 
-            validation_data=(validation_data.X, validation_data.y),
-            callbacks=self.callbacks, epochs=self.epochs)
+        history = self.model.fit(
+            np.array(train_data.X), 
+            np.array(train_data.y),
+            batch_size=self.batch_size,
+            validation_data=(np.array(validation_data.X), np.array(validation_data.y)),
+            callbacks=self.callbacks,
+            epochs=self.epochs
+        )
 
         print('finished fitting')
         return history.history

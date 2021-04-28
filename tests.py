@@ -68,10 +68,10 @@ def cifar10_test (model, u=0.8):
 
     # Test the model using test set
     y_pred = model.predict(test.X)
-    y_pred = y_pred.ravel() #TODO necessary?
+    # y_pred = y_pred.ravel() # not necessary?
 
     # TODO if outputs are one-hot encoded, need to decode for correctness test
-    wrong = util.percent_wrong(y_pred.ravel(), test.y.ravel())
+    wrong = util.percent_wrong(y_pred, test.y)
     acc = 1.0 - wrong
     print(model.name, ' : acc:', acc)
 

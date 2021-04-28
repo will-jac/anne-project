@@ -1,4 +1,5 @@
 import random
+import numpy as np
 
 def training_generator(X, y, U, labeled_to_total_ratio, batch_size=10):
     '''
@@ -13,18 +14,21 @@ def training_generator(X, y, U, labeled_to_total_ratio, batch_size=10):
     x_index = u_index = 0
     x_size = int(round(batch_size*(labeled_to_total_ratio)))
     u_size = int(round(batch_size*(1-labeled_to_total_ratio)))
+    x_end = X.shape[0] - 1
+    u_end = U.shape[0] - 1
+
+    print('creating generator..', x_size, u_size, x_end, u_end)
     while True:
         # Randomly select a set of example indices
-        Xi = range(x_index, min(x_index + x_size, X.shape[0]))
-        Ui = range(u_index, min(u_index + u_size, U.shape[0]))
-        
+        Xi = np.arange(x_index, min(x_index + x_size, X.shape[0]))
+        Ui = np.arange(u_index, min(u_index + u_size, U.shape[0]))
 
-        if x_index < X.shape[0]:
+        if x_index + x_size - x_end > 0:
             x_index += x_size
         else:
             x_index = 0
             
-        if u_index < U.shape[0]:
+        if u_index + u_size - u_end > 0:
             u_index += u_size
         else:
             u_index = 0
