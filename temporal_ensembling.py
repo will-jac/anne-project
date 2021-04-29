@@ -19,15 +19,15 @@ def temporal_ensembling_loss(X, y, U, model, unsupervised_weight, ensembling_tar
 
     pred = tf.concat([z_X, z_U], 0)
 
-    return pred, tf.reduce_sum(tf.keras.losses.categorical_crossentropy(y, z_X)) + \
-            unsupervised_weight * tf.reduce_sum(tf.keras.losses.mean_squared_error(ensembling_targets, pred))
+    return pred, tf.keras.losses.categorical_crossentropy(y, z_X) + \
+        unsupervised_weight * \
+        tf.reduce_sum(tf.keras.losses.mean_squared_error(ensembling_targets, pred))
 
 def temporal_ensembling_gradients(X, y, U, model, unsupervised_weight, ensembling_targets):
 
     with tf.GradientTape() as tape:
         ensemble_precitions, loss_value = temporal_ensembling_loss( 
-            X, y, U,
-            model, unsupervised_weight, ensembling_targets
+            X, y, U, model, unsupervised_weight, ensembling_targets
         )
 
     return ensemble_precitions, loss_value, tape.gradient(loss_value, model.trainable_weights)
@@ -88,6 +88,8 @@ class TemporalEnsembling():
             use_image_augmentation=False
         ):
 
+        self.name = 'temporal ensembling'
+
         self.checkpoint_directory = './checkpoints'
 
         self.epochs = epochs
@@ -122,8 +124,9 @@ class TemporalEnsembling():
 
         # define a data generator
         self.num_batches = (train_data.X.shape[0]  + train_data.U.shape[0]) // self.batch_size 
-        generator = training_generator(train_data.X, train_data.y, train_data.U, train_data.X.shape[0] / train_data.U.shape[0], self.batch_size)
+        generator = training_generator(train_data.X, train_data.y, train_data.U, train_data.X.shape[0] / (train_data.X.shape[0] + train_data.U.shape[0]), self.batch_size)
 
+        best_val_accuracy = 0.0
         # custom training loop
         for epoch in range(self.epochs):
             rampdown_value = ramp_down_function(epoch, self.epochs)
@@ -138,14 +141,13 @@ class TemporalEnsembling():
             self.beta_1.assign(rampdown_value * self.beta_1_start + (1.0 - rampdown_value) * self.beta_1_end)
 
             epoch_loss_avg = tf.keras.metrics.Mean()
-            epoch_accuracy = tf.keras.metrics.Accuracy()
+            epoch_accuracy = tf.keras.metrics.CategoricalAccuracy()
             epoch_loss_avg_validation = tf.keras.metrics.Mean()
-            epoch_accuracy_validation = tf.keras.metrics.Accuracy()
-            
-            Xi, Ui = next(generator)
-            X, y, U = train_data.X[Xi], train_data.y[Xi], train_data.U[Ui]
+            epoch_accuracy_validation = tf.keras.metrics.CategoricalAccuracy()
 
-            for _ in range(self.num_batches):
+            for batch_num in range(self.num_batches):
+                Xi, Ui = next(generator)
+                X, y, U = train_data.X[Xi], train_data.y[Xi], train_data.U[Ui]
 
                 ensemble_indexes = np.concatenate([Xi, train_data.X.shape[0] + Ui])
                 ensemble_targets = z[ensemble_indexes]
@@ -154,20 +156,18 @@ class TemporalEnsembling():
                 current_outputs, loss_val, grads = self.gradients(
                     X, y, U, self.model, unsupervised_weight, ensemble_targets
                 )
-                self.opt.apply_gradients(zip(grads, self.model.variables))
+                self.opt.apply_gradients(zip(grads, self.model.trainable_variables))
 
                 # compute metrics...
                 epoch_loss_avg(loss_val)
-                epoch_accuracy(tf.argmax(self.model(X), 1), tf.argmax(y, 1))
-
-                epoch_loss_avg(loss_val)
-                epoch_accuracy(tf.argmax(self.model(X), 1), tf.argmax(y, 1))
+                epoch_accuracy(self.model(X, training=False), y)
                 
                 # update our ensemble stored outputs
                 Z[ensemble_indexes, :] = self.alpha * Z[ensemble_indexes, :] + (1 - self.alpha) * current_outputs
                 z[ensemble_indexes, :] = Z[ensemble_indexes, :] * (1. / (1. - self.alpha ** (sample_epoch[ensemble_indexes] + 1)))
                 sample_epoch[ensemble_indexes] += 1
 
+                # print('batch', batch_num, ': Train Loss: {:9.7f}, Train Accuracy: {:02.6%}'.format(epoch_loss_avg.result(), epoch_accuracy.result()))
             # end of training batch - do a validation batch
             y_validation_predictions = self.model(validation_data.X, training=False)
 
@@ -176,7 +176,7 @@ class TemporalEnsembling():
 
             print("Epoch {:03d}/{:03d}: Train Loss: {:9.7f}, Train Accuracy: {:02.6%}, Validation Loss: {:9.7f}, "
               "Validation Accuracy: {:02.6%}, lr={:.9f}, unsupervised weight={:5.3f}, beta1={:.9f}".format(
-                epoch+1,
+                epoch,
                 self.epochs,
                 epoch_loss_avg.result(),
                 epoch_accuracy.result(),
@@ -210,6 +210,8 @@ class PiModel():
             use_image_augmentation=False
         ):
 
+        self.name = 'pi'
+
         self.checkpoint_directory = './checkpoints'
 
         self.epochs = epochs
@@ -217,11 +219,11 @@ class PiModel():
         
         self.max_lrate = max_lrate
 
-        self.lrate = tf.Variable(max_lrate)
+        self.lrate = tf.Variable(max_lrate, trainable=False)
 
         self.alpha = alpha
 
-        self.beta_1 = tf.Variable(beta_1[0])
+        self.beta_1 = tf.Variable(beta_1[0], trainable=False)
         self.beta_1_start = beta_1[0]
         self.beta_1_end = beta_1[1]
         self.beta_2 = beta_2
@@ -284,26 +286,28 @@ class PiModel():
                 # except:
                 #     print('eval fail..', len(Xi), len(Ui), Xi, Ui)
 
-                self.opt.apply_gradients(zip(grads, self.model.trainable_weights))
+                self.opt.apply_gradients(zip(grads, self.model.trainable_variables))
 
                 # compute metrics...
                 epoch_loss_avg += tf.reduce_mean(loss_val)
                 # epoch_accuracy(tf.argmax(self.model(X), 1), tf.argmax(y, 1))
                 epoch_accuracy(self.model(X, training=False), y)
 
-                # end of training batch - do a validation batch
-                y_validation_predictions = self.model(validation_data.X, training=False)
+                # print('batch', batch_num, ': Train Loss: {:9.7f}, Train Accuracy: {:02.6%}'.format(epoch_loss_avg.result(), epoch_accuracy.result()))
 
-                loss_validation_val = tf.keras.losses.categorical_crossentropy(validation_data.y, y_validation_predictions)
-                epoch_loss_avg_validation = tf.reduce_mean(loss_validation_val)
-                # epoch_accuracy_validation(tf.argmax(y_validation_predictions, 1), tf.argmax(validation_data.y, 1))
-                epoch_accuracy_validation(y_validation_predictions, validation_data.y)
+            # end of training batch - do a validation batch
+            y_validation_predictions = self.model(validation_data.X, training=False)
 
-                # If the accuracy of validation improves save a checkpoint
-                if best_val_accuracy < epoch_accuracy_validation.result():
-                    best_val_accuracy = epoch_accuracy_validation.result()
-                    checkpoint = tf.train.Checkpoint(optimizer=self.opt, model=self.model)
-                    checkpoint.save(file_prefix=self.checkpoint_directory)
+            loss_validation_val = tf.keras.losses.categorical_crossentropy(validation_data.y, y_validation_predictions)
+            epoch_loss_avg_validation = tf.reduce_mean(loss_validation_val)
+            # epoch_accuracy_validation(tf.argmax(y_validation_predictions, 1), tf.argmax(validation_data.y, 1))
+            epoch_accuracy_validation(y_validation_predictions, validation_data.y)
+
+            # If the accuracy of validation improves save a checkpoint
+            if best_val_accuracy < epoch_accuracy_validation.result():
+                best_val_accuracy = epoch_accuracy_validation.result()
+                checkpoint = tf.train.Checkpoint(optimizer=self.opt, model=self.model)
+                checkpoint.save(file_prefix=self.checkpoint_directory)
 
                 # print('  ', loss_val, epoch_loss_avg, loss_validation_val, epoch_loss_avg_validation)
 

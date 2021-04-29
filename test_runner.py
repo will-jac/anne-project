@@ -17,7 +17,7 @@ def create_parser():
     # used by all models
 
     # used by all
-    parser.add_argument('-lrate', type=float, default=0.001, help='learning rate')
+    parser.add_argument('-lrate', type=float, default=0.0001, help='learning rate')
     parser.add_argument('-batch_size', type=int, default=100, help='batch size')
     parser.add_argument('-epochs', type=float, default=1000, help='number of epochs')
     parser.add_argument('-use_image_augmentation', default=False, action='store_true', help='flag to use image augmentation or not')
@@ -43,7 +43,7 @@ def execute_exp(args):
         print('error: model', args.method, 'not found') 
         return
 
-    # run the tets
+    # run the tests
     results = test(model)
 
     # save the output

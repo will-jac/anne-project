@@ -4,7 +4,7 @@ import util
 # data sets
 import data.adult as adult
 import data.cifar_10 as cifar_10
-
+import tensorflow_datasets as tfds
 
 # other things
 import tensorflow as tf
@@ -16,7 +16,7 @@ from sklearn.metrics import roc_curve, plot_roc_curve
 # Return the accuracy based on the test set. 
 # test-specific models
 
-from base_models import Cifar10Model
+from base_models import Cifar10Model, build_comparison_model_cifar10
 
 def adult_test(model, u=0.8):
 
@@ -49,32 +49,54 @@ def adult_test(model, u=0.8):
     return acc
 
 def cifar10_test (model, num_label=4000):
-    # Load in training and test data, done by including cifar_10.py
-    X_train, y_train, X_test, y_test = cifar_10.load_cifar_10()
 
-    # Setup test set
-    test = util.Data(X_test, y_test, None)
-    
-    # Split training test into labeled and unlabeled
-    train = util.label_unlabel_split(X_train, y_train, num_label)
+    # load data on the cpu
+    with tf.device('/CPU:0'):
 
-    # Split training data into training and validation
-    (train, valid) = util.train_test_valid_split(train.X, train.y, split=(0.9, 0.1), U = train.X) # TODO specify validation/train split?
+        # Load in training and test data
+        X_train, y_train = tfds.as_numpy(tfds.load('cifar10', split='train', as_supervised=True, batch_size=-1)) #cifar_10.load_cifar_10()
+        X_test, y_test = tfds.as_numpy(tfds.load('cifar10', split='test', as_supervised=True, batch_size=-1))
+        
+        # one-hot encode the outs
+        y_train = np.eye(10)[y_train.reshape(-1)]
+        # print('y_train sample:', y_train[0:10])
+        y_test = np.eye(10)[y_test.reshape(-1)]
+        # print('y_test sample:', y_test[0:10])
+        # cast it all to floats for image augmentation
+        X_train = X_train.astype(float)
+        X_test = X_test.astype(float)
+        # X_train, y_train, X_test, y_test = cifar_10.load_cifar_10()
 
-    # One-hot encode cifar_10.y_train and cifar_10.y_test?
-    ## ^^ yes. Done.
+        print('loaded cifar10', X_train.shape, X_test.shape)
+        # Setup test set
+        test = util.Data(X_test, y_test, None)
+        
+        # Split training test into labeled and unlabeled
+        train = util.label_unlabel_split(X_train, y_train, num_label)
 
-    # Train model using training and validation sets
-    model.fit(train, valid)
+        # Split training data into training and validation
+        (train, valid) = util.train_test_valid_split(train.X, train.y, split=(0.9, 0.1), U = train.U) # TODO specify validation/train split?
 
-    # Test the model using test set
-    y_pred = model.predict(test.X)
-    # y_pred = y_pred.ravel() # not necessary?
+        # One-hot encode cifar_10.y_train and cifar_10.y_test?
+        ## ^^ yes. Done.
+        print('TR:', train.X.shape, train.y.shape, train.U.shape)
+        print('v', valid.X.shape, valid.y.shape)
 
-    # if outputs are one-hot encoded, need to decode for correctness test
-    # wrong = util.percent_wrong(y_pred, test.y)
-    # acc = 1.0 - wrong
-    print(model.name, ' : acc:', tf.keras.metrics.categorical_accuracy(test.y, y_pred))
+    # fit on the gpu
+    with tf.device('/GPU:0'):
+
+        # Train model using training and validation sets
+        model.fit(train, valid)
+
+        # Test the model using test set
+        y_pred = model.predict(test.X)
+        # y_pred = y_pred.ravel() # not necessary?
+
+        # if outputs are one-hot encoded, need to decode for correctness test
+        # wrong = util.percent_wrong(y_pred, test.y)
+        # acc = 1.0 - wrong
+        acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(test.y, y_pred))
+        print(model.name, ' : acc:', acc)
 
     return acc    
 
@@ -90,5 +112,6 @@ def svhn_test (model, u=0.8):
 
 # return test-specific model and the testing function (which should accept a model and return the accuracy)
 tests = {
-    'cifar10' : (Cifar10Model, cifar10_test)
+    'cifar10' : (Cifar10Model, cifar10_test),
+    'cifar10supervised' : (build_comparison_model_cifar10, cifar10_test)
 }

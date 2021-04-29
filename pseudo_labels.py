@@ -45,7 +45,10 @@ class PseudoLabels():
         self.pretrain_lrate = pretrain_lrate
 
         self.callbacks = [
-            keras.callbacks.EarlyStopping(patience=patience, restore_best_weights=True, min_delta=min_delta),
+            keras.callbacks.EarlyStopping(
+                patience=patience, restore_best_weights=True, min_delta=min_delta,
+                monitor='categorical_accuracy'
+            ),
             # alpha scheduler
             keras.callbacks.LambdaCallback(
                 on_epoch_begin = lambda epoch, logs : self.alpha_schedule(epoch)
@@ -71,10 +74,13 @@ class PseudoLabels():
 
     def alpha_schedule(self, epoch_num):
         if epoch_num < self.T1:
+            print('alpha set to 0.0')
             return 0.0
         if epoch_num < self.T2:
+            print('alpha set to', (epoch_num - self.T1) / (self.T2 - self.T1) * self.af)
             return (epoch_num - self.T1) / (self.T2 - self.T1) * self.af
         else:
+            print('alpha set to', self.af)
             return self.af
 
     def pl_loss(self, y_true, y_pred):
@@ -106,7 +112,7 @@ class PseudoLabels():
         # tf.print('unlabeled:', y_pl[unlabeled_index], y_pred[unlabeled_index])
 
         # compute the loss labeled and pl seperately so we can apply alpha
-        loss = keras.losses.binary_crossentropy(y_true, y_pred)
+        loss = keras.losses.categorical_crossentropy(y_true, y_pred)
 
         # loss = keras.losses.binary_crossentropy(y_pl, y_pred)
 
@@ -136,7 +142,6 @@ class PseudoLabels():
         # print(train_data.X[u:u+2])
         # print(train_data.y[u:u+2])
         # print(train_data.y[0:2])
-        
 
         print('prelabeled data:', train_data.X.shape, train_data.y.shape)
 
@@ -184,7 +189,6 @@ class PseudoLabels():
             callbacks=self.callbacks,
             epochs=self.epochs
         )
-
         print('finished fitting')
         return history.history
 

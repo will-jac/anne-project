@@ -14,8 +14,9 @@ def load_cifar_10(one_hot = True):
         for fn in filenames:
             with open(os.path.join('data', 'cifar-10', fn), 'rb') as f:
                 data = pickle.load(f, encoding='bytes')
-            images.append(np.asarray(data[b'data'], dtype='float32').reshape(-1, 3, 32, 32) / np.float32(255))
+            images.append(np.asarray(data[b'data'], dtype='float32').reshape(-1, 32, 32, 3) / np.float32(255))
             labels.append(np.asarray(data[b'labels'], dtype='int32'))
+            print('loaded batch', fn)
         return np.concatenate(images), np.concatenate(labels)
 
     X_train, y_train = load_cifar_batches(['data_batch_%d' % i for i in (1, 2, 3, 4, 5)])

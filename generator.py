@@ -17,7 +17,7 @@ def training_generator(X, y, U, labeled_to_total_ratio, batch_size=10):
     x_end = X.shape[0] - 1
     u_end = U.shape[0] - 1
 
-    print('creating generator..', x_size, u_size, x_end, u_end)
+    print('creating generator..', 'batch', batch_size, 'ratio', labeled_to_total_ratio, 'sizes', x_size, u_size, 'ends', x_end, u_end)
     while True:
         # Randomly select a set of example indices
         Xi = np.arange(x_index, min(x_index + x_size, X.shape[0]))

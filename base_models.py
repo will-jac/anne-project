@@ -16,6 +16,9 @@ def image_augmentation(image):
 
     return image
 
+def leaky_relu(x):
+    return tf.keras.activations.relu(x, alpha=0.1)
+
 class Cifar10Model(tf.keras.Model):
 
     def __init__(self, do_image_augmentation=True):
@@ -27,115 +30,124 @@ class Cifar10Model(tf.keras.Model):
         self.do_image_augmentation = do_image_augmentation
         # create the network with dropout
 
-        ## TODO: check relu usage. I changed to tanh because that's what's more typically used
+        ## TODO: check relu usage. I changed to tanh because that's what's more typically use
 
-        activation = 'tanh'
-        self._conv1a = tfa.layers.WeightNormalization(
+        normalization = lambda layer : tfa.layers.WeightNormalization(layer, data_init=False)
+        # normalization = lambda layer : tf.keras.layers.BatchNormalization(layer)
+        
+        self._conv1a = normalization(
+            tf.keras.layers.Conv2D(
+                filters=128, 
+                kernel_size=[3, 3],
+                padding="same", 
+                kernel_initializer=tf.keras.initializers.he_uniform(),
+                bias_initializer=tf.keras.initializers.constant(0.1)
+            )
+        )
+        self._conv1a_out = tf.keras.layers.LeakyReLU(alpha=0.1)
+        self._conv1b = normalization(
             tf.keras.layers.Conv2D(
                 filters=128, 
                 kernel_size=[3, 3],
                 padding="same", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation=activation
+                # activation=lrelu
             )
         )
-        self._conv1b = tfa.layers.WeightNormalization(
-            tf.keras.layers.Conv2D(
-                filters=128, 
-                kernel_size=[3, 3],
-                padding="same", 
-                kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1),
-                activation=activation,
-            )
-        )
-        self._conv1c = tfa.layers.WeightNormalization( 
+        self._conv1b_out = tf.keras.layers.LeakyReLU(alpha=0.1)
+        self._conv1c = normalization( 
             tf.keras.layers.Conv2D(
                 filters=128, 
                 kernel_size=[3, 3],
                 padding="same",
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation=activation,
+                # activation=lrelu
             )
         )
-        self._pool1 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
-        self._dropout1 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
-        self._conv2a = tfa.layers.WeightNormalization(
+        self._conv1c_out = tf.keras.layers.LeakyReLU(alpha=0.1)
+        self._pool1 = tf.keras.layers.MaxPool2D(pool_size=(2,2), padding="same")
+        self._dropout1 = tf.keras.layers.Dropout(0.5)
+
+
+        self._conv2a = normalization(
             tf.keras.layers.Conv2D(
                 filters=256, 
                 kernel_size=[3, 3],
                 padding="same", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation=activation
+                # activation=lrelu
             )
         )
-        self._conv2b = tfa.layers.WeightNormalization(
+        self._conv2a_out = tf.keras.layers.LeakyReLU(alpha=0.1)
+        self._conv2b = normalization(
             tf.keras.layers.Conv2D(
                 filters=256, 
                 kernel_size=[3, 3],
                 padding="same", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation=activation
+                # activation=lrelu
             )
         )
-        self._conv2c = tfa.layers.WeightNormalization(
+        self._conv2b_out = tf.keras.layers.LeakyReLU(alpha=0.1)
+        self._conv2c = normalization(
             tf.keras.layers.Conv2D(
                 filters=256, kernel_size=[3, 3],
                 padding="same", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation=activation
+                # activation=lrelu
             )
         )
-        self._pool2 = tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="same")
+        self._conv2c_out = tf.keras.layers.LeakyReLU(alpha=0.1)
+        self._pool2 = tf.keras.layers.MaxPool2D(pool_size=(2,2), padding="same")
         self._dropout2 = tf.keras.layers.Dropout(0.5)
-        self._conv3a = tfa.layers.WeightNormalization(
+
+
+        self._conv3a = normalization(
             tf.keras.layers.Conv2D(
                 filters=512, kernel_size=[3, 3],
-                padding="same",
+                padding="valid",
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation=activation
+                # activation=lrelu
             )
         )
-        self._conv3b = tfa.layers.WeightNormalization(
+        self._conv3a_out = tf.keras.layers.LeakyReLU(alpha=0.1)
+        self._conv3b = normalization(
             tf.keras.layers.Conv2D(
                 filters=256, 
                 kernel_size=[1, 1],
-                padding="same", 
+                padding="valid", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation=activation
+                # activation=lrelu
             )
         )
-        self._conv3c = tfa.layers.WeightNormalization(
+        self._conv3b_out = tf.keras.layers.LeakyReLU(alpha=0.1)
+        self._conv3c = normalization(
             tf.keras.layers.Conv2D(
                 filters=128, 
                 kernel_size=[1, 1],
-                padding="same", 
+                padding="valid", 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1),
-                activation=activation
+                # activation=lrelu
             )
         )
-        self._dense = tfa.layers.WeightNormalization(
+        self._conv3c_out = tf.keras.layers.LeakyReLU(alpha=0.1)
+        # TODO: no normalization on the output, I think
+        self._dense = (
             tf.keras.layers.Dense(
                 units=10, 
-                activation='sigmoid',## TODO: check what this should be - I changed to sigmoid bc that makes more sense with crossentropy
+                activation='softmax',## TODO: check what this should be - I changed to sigmoid bc that makes more sense with crossentropy
                 kernel_initializer=tf.keras.initializers.he_uniform(),
                 bias_initializer=tf.keras.initializers.constant(0.1)
             )
         )
-
-        self._layers = [
-            [self._conv1a, self._conv1b, self._conv1c, self._pool1, self._dropout1],
-            [self._conv2a, self._conv2b, self._conv2c, self._pool2, self._dropout2],
-            [self._conv3a, self._conv3b, self._conv3c, self._dense]
-        ]
 
     def call(self, inputs, training=True):
         
@@ -147,25 +159,49 @@ class Cifar10Model(tf.keras.Model):
             h = inputs
         
         # pass the (augmented) input through the model
+        # print('in', h.shape)
         h = self._conv1a(h, training=training)
+        h = self._conv1a_out(h)
+        # print('1a', h.shape)
         h = self._conv1b(h, training=training)
+        h = self._conv1b_out(h)
+        # print('1b', h.shape)
         h = self._conv1c(h, training=training)
+        h = self._conv1c_out(h)
+        # print('1c', h.shape)
         h = self._pool1(h, training=training)
+        # print('1p', h.shape)
         h = self._dropout1(h, training=training)
-
+        # print('chunk 1 done', h.shape)
         h = self._conv2a(h, training=training)
+        h = self._conv2a_out(h)
+        # print('2a', h.shape)
         h = self._conv2b(h, training=training)
+        h = self._conv2b_out(h)
+        # print('2b', h.shape)
         h = self._conv2c(h, training=training)
+        h = self._conv2c_out(h)
+        # print('2c', h.shape)
         h = self._pool2(h, training=training)
+        # print('2p', h.shape)
         h = self._dropout2(h, training=training)
-
+        # print('chunck 2 done', h.shape)
         h = self._conv3a(h, training=training)
+        h = self._conv3a_out(h)
+        # print('3a', h.shape)
         h = self._conv3b(h, training=training)
+        h = self._conv3b_out(h)
+        # print('3b', h.shape)
         h = self._conv3c(h, training=training)
+        h = self._conv3c_out(h)
+        # print('3c', h.shape)
 
         # Average Pooling
         h = tf.reduce_mean(h, axis=[1, 2])
-        return self._dense(h, training=training)
+        # print('average pooling done', h.shape)
+        h = self._dense(h, training=training)
+        # print('dense', h.shape)
+        return h
 
     def pretrain(self, train, validation, epochs, lrate=0.001, L2_reg=0.001,
             loss='mse', out_activation='sigmoid', callbacks=None, metrics=None):
@@ -173,10 +209,10 @@ class Cifar10Model(tf.keras.Model):
         # pretraining will work on each conv2d chunk
         base_model = tf.keras.Sequential(
             [
-                tf.keras.layers.InputLayer(input_shape=train.X.shape[1]), 
-                self._conv1a, self._conv1b, self._conv1c, 
+                tf.keras.layers.Input(train.X.shape), 
+                self._conv1a, self._conv1a_out, self._conv1b, self._conv1b_out, self._conv1c, self._conv1c_out,
                 self._pool1, self._dropout1,
-                tf.keras.layers.Dense(train.y.shape[1], activation=out_activation, name='sigmoid', use_bias=True, kernel_regularizer=tf.keras.regularizers.L2(L2_reg))
+                tf.keras.layers.Dense(train.y.shape[1], activation='softmax', name='output', use_bias=True, kernel_regularizer=tf.keras.regularizers.L2(L2_reg))
             ]
         )
         base_model.compile(loss=loss, metrics=metrics, optimizer=opt)
@@ -184,13 +220,13 @@ class Cifar10Model(tf.keras.Model):
             epochs=epochs, callbacks=callbacks)
 
         for layers in [
-            [self._conv2a, self._conv2b, self._conv2c, self._pool2, self._dropout2],
+            [self._conv2a, self._conv2a_out, self._conv2b, self._conv2b_out, self._conv2c, self._conv2c_out, self._pool2, self._dropout2],
             [self._conv3a, self._conv3b, self._conv3c]
         ]:
             base_model.trainable = False
 
             model = tf.keras.Sequential()
-            model.add(tf.keras.layers.InputLayer(input_shape=train.X.shape[1]))
+            model.add(tf.keras.layers.Input(train.X.shape))
             for layer in base_model.layers[:-1]:
                 model.add(layer)
 
@@ -214,3 +250,77 @@ class Cifar10Model(tf.keras.Model):
 
      
 # define other models for other problems here
+
+def build_comparison_model_cifar10(lrate):
+    input_layer = model = tf.keras.Input(shape=(None, 32, 32, 3))()
+    for f in [128, 256]:
+        for _ in range(2):
+            model = tf.keras.layers.Conv2D(
+                filters=f, 
+                kernel_size=[3, 3],
+                padding='same', 
+                kernel_initializer=tf.keras.initializers.he_uniform(),
+                bias_initializer=tf.keras.initializers.constant(0.1)
+            )(model)
+            model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+            model = tf.keras.layers.BatchNormalization()(model)
+        model = tf.keras.layers.MaxPool2D(pool_size=(2,2), padding='same')(model)
+        model = tf.keras.layers.Dropout(0.5)(model)
+    model = tf.keras.layers.Conv2D(
+        filters=512, 
+        kernel_size=[3, 3],
+        padding='valid', 
+        kernel_initializer=tf.keras.initializers.he_uniform(),
+        bias_initializer=tf.keras.initializers.constant(0.1)
+    )(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+    model = tf.keras.layers.BatchNormalization()(model)
+
+    model = tf.keras.layers.Conv2D(
+        filters=256, 
+        kernel_size=[1, 1],
+        padding='valid', 
+        kernel_initializer=tf.keras.initializers.he_uniform(),
+        bias_initializer=tf.keras.initializers.constant(0.1)
+    )(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+    model = tf.keras.layers.BatchNormalization()(model)
+
+    model = tf.keras.layers.Conv2D(
+        filters=128, 
+        kernel_size=[1,1],
+        padding='valid', 
+        kernel_initializer=tf.keras.initializers.he_uniform(),
+        bias_initializer=tf.keras.initializers.constant(0.1)
+    )(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+    model = tf.keras.layers.BatchNormalization()(model)
+
+    output_layer = model = tf.keras.layers.Dense(
+        units=10,
+        activation='softmax',
+        kernel_initializer=tf.keras.initializers.he_uniform(),
+        bias_initializer=tf.keras.initializers.constant(0.1)
+    )
+
+    model = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+ 
+    opt = tf.keras.optimizers.Adam(lrate)
+    model.compile(opt=opt, loss='categorical_crossentropy')
+
+    return model
+
+
+
+class Supervised():
+
+    def __init__(self, model, args):
+        self.model = model(args.lrate)
+        self.args = args
+
+    def fit(train, valid):
+        self.model.fit(
+            train.X, train.y, 
+            validatation_data=(valid.X, valid.y), 
+            epochs=epochs
+        )

@@ -1,6 +1,7 @@
 
 from pseudo_labels import PseudoLabels
 from temporal_ensembling import PiModel, TemporalEnsembling
+from base_models import Supervised
 
 # TODO: make this form of passing a model work for pseudo labels
 
@@ -21,5 +22,6 @@ models = {
             batch_size=args.batch_size,
             use_image_augmentation=args.use_image_augmentation
         ),
+    'supervised' : lambda model, args : Supervised(model, args),
     'none' : lambda model, args: print('no model! args passed:', args)
 }
