@@ -31,6 +31,7 @@ class PseudoLabels():
     '''
 
     def __init__(self, model, lrate, epochs, batch_size,
+            steps_per_epoch=2,
             patience=500, min_delta=0.0,
             use_image_augmentation=False,
             use_dae=False, pretrain_lrate=0.001, pretrain_epochs=100,
@@ -40,6 +41,7 @@ class PseudoLabels():
         self.lrate = lrate
         self.epochs = int(epochs)
         self.batch_size = int(batch_size)
+        self.steps_per_epoch=steps_per_epoch
         self.use_dae = use_dae
         self.pretrain_epochs = pretrain_epochs
         self.pretrain_lrate = pretrain_lrate
@@ -187,7 +189,8 @@ class PseudoLabels():
             batch_size=self.batch_size,
             validation_data=(np.array(validation_data.X), np.array(validation_data.y)),
             callbacks=self.callbacks,
-            epochs=self.epochs
+            epochs=self.epochs,
+            steps_per_epoch=self.steps_per_epoch
         )
         print('finished fitting')
         return history.history

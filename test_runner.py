@@ -6,29 +6,53 @@ import argparse
 import models
 import tests
 
-def create_parser():
-    # Parse the command-line arguments
-    parser = argparse.ArgumentParser(description='ANNE', fromfile_prefix_chars='@')
-    parser.add_argument('-method', type=str, default='pseudo', help='kernel method to use')
-    parser.add_argument('-test', type=str, default='adult', help='test dataset to use')
-    parser.add_argument('-dir', type=str, default='./results', help='location to store results')
-    
-    ## The following are parameters for the models. They're (mostly) optional, and may not be
-    # used by all models
+from types import SimpleNamespace
 
-    # used by all
-    parser.add_argument('-lrate', type=float, default=0.0001, help='learning rate')
-    parser.add_argument('-batch_size', type=int, default=100, help='batch size')
-    parser.add_argument('-epochs', type=float, default=1000, help='number of epochs')
-    parser.add_argument('-use_image_augmentation', default=False, action='store_true', help='flag to use image augmentation or not')
+configs = {
+    'cifar10pi' :{
+        'method' : 'pi',
+        'test' : 'cifar10_experimental',
+        'dir' : './results/cifar10/pi',
+        'epochs' : 500,
+        'batch_size' : 100,
+        'steps_per_epoch' : 2,
+        'use_image_augmentation' : True,
+    },
+    'cifar10te' : {
+        'method' : 'te',
+        'test' : 'cifar10',
+        'dir' : './results/cifar10/te',
+        'epochs' : 100,
+        'batch_size' : 100,
+        'steps_per_epoch' : 2,
+        'use_image_augmentation' : True,
+    },
+    'cifar10pl' : {
+        'method' : 'pl',
+        'test' : 'cifar10',
+        'dir' : './results/cifar10/pl',
+        'lrate' : 0.0001,
+        'epochs' : 100,
+        'batch_size' : 100,
+        'steps_per_epoch' : 2,
+        'use_image_augmentation' : True,
+        'use_dae' : False
+    },
+    'cifar10supervised' : {
+        'method' : 'supervised',
+        'test' : 'cifar10',
+        'dir' : './results/cifar10/supervised',
+        'lrate' : 0.0001,
+        'epochs' : 100,
+        'batch_size' : 100,
+        'steps_per_epoch' : 2,
+        'use_image_augmentation' : True,
+    }
+}
 
-    parser.add_argument('-activation', type=str, default='tanh', help='hidden activation function'),
-    parser.add_argument('-out_activation', type=str, default='sigmoid', help='output activation function')
-    parser.add_argument('-dropout', type=float, default=0.5, help='dropout probability')
-    parser.add_argument('-use_dae', default=False, action='store_true', help='flag to use DAE or not (PL)')
-    return parser
+def execute_exp(run_config):
 
-def execute_exp(args):
+    args = SimpleNamespace(**run_config)
 
     if args.test in tests.tests:
         base_model, test = tests.tests[args.test]
@@ -45,7 +69,9 @@ def execute_exp(args):
 
     # run the tests
     results = test(model)
+    return model, results
 
+def save_results(model, results):
     # save the output
     fname = args.dir + '/' +  args.test + '_' + args.method  + '.out'
 
@@ -64,7 +90,12 @@ if __name__ == "__main__":
     physical_devices = tf.config.list_physical_devices('GPU') 
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
+    import sys
 
-    parser = create_parser()
-    args = parser.parse_args()
-    execute_exp(args)
+    if sys.argv[1] in configs:
+        config = configs[sys.argv[1]]
+        
+        model, results = execute_exp(config)
+        save_results(model, results)
+    else:
+        print('error:', sys.argv[1], 'not found')

@@ -16,7 +16,7 @@ from sklearn.metrics import roc_curve, plot_roc_curve
 # Return the accuracy based on the test set. 
 # test-specific models
 
-from base_models import Cifar10Model, build_comparison_model_cifar10
+from base_models import Cifar10Model, cifar10_model
 
 def adult_test(model, u=0.8):
 
@@ -86,7 +86,7 @@ def cifar10_test (model, num_label=4000):
     with tf.device('/GPU:0'):
 
         # Train model using training and validation sets
-        model.fit(train, valid)
+        hist = model.fit(train, valid)
 
         # Test the model using test set
         y_pred = model.predict(test.X)
@@ -98,7 +98,7 @@ def cifar10_test (model, num_label=4000):
         acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(test.y, y_pred))
         print(model.name, ' : acc:', acc)
 
-    return acc    
+    return model, (hist, acc)  
 
 def svhn_test (model, u=0.8):
     # Load SVHN dataset
@@ -113,5 +113,5 @@ def svhn_test (model, u=0.8):
 # return test-specific model and the testing function (which should accept a model and return the accuracy)
 tests = {
     'cifar10' : (Cifar10Model, cifar10_test),
-    'cifar10supervised' : (build_comparison_model_cifar10, cifar10_test)
+    'cifar10_experimental' : (cifar10_model, cifar10_test)
 }

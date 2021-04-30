@@ -9,15 +9,12 @@ def gaussian_noise(input, std):
     return input + noise
 
 def image_augmentation(image):
-
-    random_shifts = np.random.randint(-2, 2, (image.numpy().shape[0], 2))
+    
+    random_shifts = np.random.randint(-2, 2, (image.shape[0], 2))
     random_transformations = tfa.image.translations_to_projective_transforms(random_shifts)
-    image = tfa.image.transform(image, random_transformations, 'NEAREST', output_shape=tf.convert_to_tensor(image.numpy().shape[1:3], dtype=np.int32)) 
+    image = tfa.image.transform(image, random_transformations, 'NEAREST', output_shape=tf.convert_to_tensor(image.shape[1:3], dtype=np.int32)) 
 
     return image
-
-def leaky_relu(x):
-    return tf.keras.activations.relu(x, alpha=0.1)
 
 class Cifar10Model(tf.keras.Model):
 
@@ -251,8 +248,20 @@ class Cifar10Model(tf.keras.Model):
      
 # define other models for other problems here
 
-def build_comparison_model_cifar10(lrate):
-    input_layer = model = tf.keras.Input(shape=(None, 32, 32, 3))()
+def cifar10_model(
+        do_image_augmentation=True, 
+        noise_stdev=0.15,
+        height_mod = (0.1,0.1), width_mod = (0.1,0.1),
+        dropout=0.5, 
+        l2=0.001
+):
+    input_layer = model = tf.keras.Input(shape=(32, 32, 3))
+
+    if do_image_augmentation:
+        model = tf.keras.layers.GaussianNoise(noise_stdev)(model)
+        model = tf.keras.layers.experimental.preprocessing.RandomFlip(mode='horizontal')(model)
+        model = tf.keras.layers.experimental.preprocessing.RandomTranslation(height_mod, width_mod, interpolation='nearest')(model)
+
     for f in [128, 256]:
         for _ in range(2):
             model = tf.keras.layers.Conv2D(
@@ -260,18 +269,20 @@ def build_comparison_model_cifar10(lrate):
                 kernel_size=[3, 3],
                 padding='same', 
                 kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1)
+                bias_initializer=tf.keras.initializers.constant(0.1),
+                kernel_regularizer=tf.keras.regularizers.l2(l2)
             )(model)
             model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
             model = tf.keras.layers.BatchNormalization()(model)
         model = tf.keras.layers.MaxPool2D(pool_size=(2,2), padding='same')(model)
-        model = tf.keras.layers.Dropout(0.5)(model)
+        model = tf.keras.layers.Dropout(dropout)(model)
     model = tf.keras.layers.Conv2D(
         filters=512, 
         kernel_size=[3, 3],
         padding='valid', 
         kernel_initializer=tf.keras.initializers.he_uniform(),
-        bias_initializer=tf.keras.initializers.constant(0.1)
+        bias_initializer=tf.keras.initializers.constant(0.1),
+        kernel_regularizer=tf.keras.regularizers.l2(l2)
     )(model)
     model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
     model = tf.keras.layers.BatchNormalization()(model)
@@ -281,7 +292,8 @@ def build_comparison_model_cifar10(lrate):
         kernel_size=[1, 1],
         padding='valid', 
         kernel_initializer=tf.keras.initializers.he_uniform(),
-        bias_initializer=tf.keras.initializers.constant(0.1)
+        bias_initializer=tf.keras.initializers.constant(0.1),
+        kernel_regularizer=tf.keras.regularizers.l2(l2)
     )(model)
     model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
     model = tf.keras.layers.BatchNormalization()(model)
@@ -291,23 +303,26 @@ def build_comparison_model_cifar10(lrate):
         kernel_size=[1,1],
         padding='valid', 
         kernel_initializer=tf.keras.initializers.he_uniform(),
-        bias_initializer=tf.keras.initializers.constant(0.1)
+        bias_initializer=tf.keras.initializers.constant(0.1),
+        kernel_regularizer=tf.keras.regularizers.l2(l2)
     )(model)
     model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
     model = tf.keras.layers.BatchNormalization()(model)
+
+    model = tf.keras.layers.AveragePooling2D((6,6))(model)
+
+    model = tf.keras.layers.Flatten()(model)
 
     output_layer = model = tf.keras.layers.Dense(
         units=10,
         activation='softmax',
         kernel_initializer=tf.keras.initializers.he_uniform(),
-        bias_initializer=tf.keras.initializers.constant(0.1)
-    )
+        bias_initializer=tf.keras.initializers.constant(0.1),
+        kernel_regularizer=tf.keras.regularizers.l2(l2)
+    )(model)
 
     model = tf.keras.Model(inputs=input_layer, outputs=output_layer)
  
-    opt = tf.keras.optimizers.Adam(lrate)
-    model.compile(opt=opt, loss='categorical_crossentropy')
-
     return model
 
 
@@ -315,12 +330,29 @@ def build_comparison_model_cifar10(lrate):
 class Supervised():
 
     def __init__(self, model, args):
-        self.model = model(args.lrate)
+        self.model = model()
         self.args = args
+        self.name = 'supervised'
 
-    def fit(train, valid):
-        self.model.fit(
-            train.X, train.y, 
-            validatation_data=(valid.X, valid.y), 
-            epochs=epochs
+    def fit(self, train, valid):
+
+        opt = tf.keras.optimizers.Adam(self.args.lrate)
+        self.model.compile(
+            optimizer=opt, 
+            loss='categorical_crossentropy',
+            metrics=[
+                tf.keras.metrics.CategoricalAccuracy()
+            ]
         )
+
+        #model.summary()
+
+        return self.model.fit(
+            train.X, train.y,
+            validation_data=(valid.X, valid.y), 
+            batch_size=self.args.batch_size,
+            epochs=self.args.epochs
+        ) 
+
+    def predict(self, X):
+        return self.model.predict(X)

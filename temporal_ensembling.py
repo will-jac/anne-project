@@ -82,7 +82,8 @@ def ramp_down_function(epoch, num_epochs, epoch_with_max_rampdown = 50):
 class TemporalEnsembling():
     
     def __init__(self, model,
-            epochs, batch_size, max_lrate=0.0002,
+            epochs, batch_size, steps_per_epoch=2,
+            lrate=0.0002,
             alpha=0.6, beta_1=[0.9,0.5], beta_2=0.98,
             max_unsupervised_weight=0.5,
             use_image_augmentation=False
@@ -94,8 +95,9 @@ class TemporalEnsembling():
 
         self.epochs = epochs
         self.batch_size = batch_size
+        self.steps_per_epoch=steps_per_epoch
         
-        self.max_lrate = max_lrate
+        self.max_lrate = lrate
 
         self.lrate = tf.Variable(max_lrate, trainable=False)
 
@@ -145,7 +147,7 @@ class TemporalEnsembling():
             epoch_loss_avg_validation = tf.keras.metrics.Mean()
             epoch_accuracy_validation = tf.keras.metrics.CategoricalAccuracy()
 
-            for batch_num in range(self.num_batches):
+            for batch_num in range(self.steps_per_epoch):
                 Xi, Ui = next(generator)
                 X, y, U = train_data.X[Xi], train_data.y[Xi], train_data.U[Ui]
 
@@ -198,13 +200,16 @@ class TemporalEnsembling():
         root = tf.train.Checkpoint(optimizer=self.opt, model=self.model)
         root.restore(tf.train.latest_checkpoint(self.checkpoint_directory))
 
+        return None
+
     def predict(self, X):
         return self.model(X, training=False)
 
 class PiModel():
     
     def __init__(self, model,
-            epochs, batch_size, max_lrate=0.0002,
+            epochs, batch_size, steps_per_epoch=2,
+            lrate=0.0002,
             alpha=0.6, beta_1=[0.9,0.5], beta_2=0.98,
             max_unsupervised_weight=0.5,
             use_image_augmentation=False
@@ -216,8 +221,10 @@ class PiModel():
 
         self.epochs = epochs
         self.batch_size = batch_size
+        self.steps_per_epoch=steps_per_epoch
         
-        self.max_lrate = max_lrate
+        self.max_lrate = lrate
+        
 
         self.lrate = tf.Variable(max_lrate, trainable=False)
 
@@ -270,7 +277,7 @@ class PiModel():
 
             # print('epoch:', epoch, 'unsupervised_weight:', unsupervised_weight)
 
-            for _ in range(self.num_batches):
+            for _ in range(self.steps_per_epoch):
 
                 Xi, Ui = next(generator)
                 
@@ -328,6 +335,8 @@ class PiModel():
         # Load the best model
         root = tf.train.Checkpoint(optimizer=self.opt, model=self.model)
         root.restore(tf.train.latest_checkpoint(self.checkpoint_directory))
+
+        return None
 
     def predict(self, X):
         return self.model(X, training=False)
