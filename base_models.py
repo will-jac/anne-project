@@ -389,10 +389,11 @@ def cifar10_model_pretrain(
         # Flatten and add a dense layer to get an output
         model = tf.keras.layers.Flatten()(model)
         output_layer = model = tf.keras.layers.Dense(
-            X.shape[1], name='output', use_bias=True, kernel_regularizer=tf.keras.regularizers.L2(L2_reg)
-        )
+            X.shape[1], name='output', use_bias=True, kernel_regularizer=tf.keras.regularizers.l2(l2)
+        )(model)
 
         # Train
+        print('training!', f)
         model = tf.keras.Model(inputs=input_layer, outputs = output_layer)
         model.compile(loss=loss, optimizer=opt)
         model.fit(X, y, validation_data=(validation_X,validation_y),epochs=epochs)
@@ -451,11 +452,10 @@ def cifar10_model_pretrain(
 
     model = tf.keras.layers.AveragePooling2D((6,6))(model)
 
-    # Flatten and add a dense layer to get an output
-    model = tf.keras.layers.Flatten()(model)
-    output_layer = model = tf.keras.layers.Dense(
-        X.shape[1], name='output', use_bias=True, kernel_regularizer=tf.keras.regularizers.L2(L2_reg)
-    )
+    # Add an upsampling layer to get an output
+    output_layer = model = tf.keras.layers.UpSampling2D()(
+        X.shape[1], name='output', use_bias=True, kernel_regularizer=tf.keras.regularizers.l2(l2)
+    )(model)
     
     # Train
     model = tf.keras.Model(inputs=input_layer, outputs = output_layer)
