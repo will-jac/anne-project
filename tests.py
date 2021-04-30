@@ -87,18 +87,20 @@ def cifar10_test (model, num_label=4000):
 
         # Train model using training and validation sets
         hist = model.fit(train, valid)
-
+    
+    print('evaluating on (subset) of test set...')
+    with tf.device('/CPU:0'):
         # Test the model using test set
-        y_pred = model.predict(test.X)
+        y_pred = model.predict(test.X[0:1000])
         # y_pred = y_pred.ravel() # not necessary?
 
         # if outputs are one-hot encoded, need to decode for correctness test
         # wrong = util.percent_wrong(y_pred, test.y)
         # acc = 1.0 - wrong
-        acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(test.y, y_pred))
+        acc = float(tf.reduce_mean(tf.keras.metrics.categorical_accuracy(test.y[0:1000], y_pred)))
         print(model.name, ' : acc:', acc)
 
-    return model, (hist, acc)  
+    return model, {'hist':hist, 'acc':acc}
 
 def svhn_test (model, u=0.8):
     # Load SVHN dataset

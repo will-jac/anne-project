@@ -13,38 +13,42 @@ configs = {
         'method' : 'pi',
         'test' : 'cifar10_experimental',
         'dir' : './results/cifar10/pi',
-        'epochs' : 500,
-        'batch_size' : 100,
-        'steps_per_epoch' : 2,
+        'epochs' : 10000,
+        'batch_size' : 300,
+        'patience' : 500,
+        'steps_per_epoch' : 10,
         'use_image_augmentation' : True,
     },
     'cifar10te' : {
         'method' : 'te',
-        'test' : 'cifar10',
+        'test' : 'cifar10_experimental',
         'dir' : './results/cifar10/te',
-        'epochs' : 100,
-        'batch_size' : 100,
-        'steps_per_epoch' : 2,
+        'epochs' : 10000,
+        'batch_size' : 300,
+        'patience' : 500,
+        'steps_per_epoch' : 10,
         'use_image_augmentation' : True,
     },
     'cifar10pl' : {
         'method' : 'pl',
-        'test' : 'cifar10',
+        'test' : 'cifar10_experimental',
         'dir' : './results/cifar10/pl',
-        'lrate' : 0.0001,
-        'epochs' : 100,
-        'batch_size' : 100,
-        'steps_per_epoch' : 2,
-        'use_image_augmentation' : True,
-        'use_dae' : False
+        'lrate' : 0.00001,
+        'epochs' : 10000,
+        'batch_size' : 300,
+        'patience' : 1000,
+        'steps_per_epoch' : 10,
+        'use_image_augmentation' : False,
+        'use_dae' : False,
     },
     'cifar10supervised' : {
         'method' : 'supervised',
-        'test' : 'cifar10',
+        'test' : 'cifar10_experimental',
         'dir' : './results/cifar10/supervised',
         'lrate' : 0.0001,
-        'epochs' : 100,
+        'epochs' : 1000,
         'batch_size' : 100,
+        'patience' : 500,
         'steps_per_epoch' : 2,
         'use_image_augmentation' : True,
     }
@@ -68,19 +72,16 @@ def execute_exp(run_config):
         return
 
     # run the tests
-    results = test(model)
-    return model, results
+    return test(model)
 
-def save_results(model, results):
+def save_results(model, results, out_dir):
     # save the output
-    fname = args.dir + '/' +  args.test + '_' + args.method  + '.out'
+    fname = out_dir + '/out.pkl'
 
     with open(fname, 'wb') as f:
-        out = {
-            'args': args,
-            'results': results
-        }
-        pkl.dump(out, f)
+        pkl.dump(results, f)
+
+    model.model.save(out_dir)
 
 if __name__ == "__main__":
 
@@ -96,6 +97,7 @@ if __name__ == "__main__":
         config = configs[sys.argv[1]]
         
         model, results = execute_exp(config)
-        save_results(model, results)
+
+        save_results(model, results, config['dir'])
     else:
         print('error:', sys.argv[1], 'not found')
