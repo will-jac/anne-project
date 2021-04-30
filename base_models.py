@@ -146,6 +146,7 @@ class Cifar10Model(tf.keras.Model):
             )
         )
 
+    @tf.function
     def call(self, inputs, training=True):
         
         # add the stochastic augmentation to the input if we're training
@@ -253,7 +254,8 @@ def cifar10_model(
         noise_stdev=0.15,
         height_mod = (0.1,0.1), width_mod = (0.1,0.1),
         dropout=0.5, 
-        l2=0.001
+        l2=0.001,
+        output_activation='softmax'
 ):
     input_layer = model = tf.keras.Input(shape=(32, 32, 3))
 
@@ -263,59 +265,77 @@ def cifar10_model(
         model = tf.keras.layers.experimental.preprocessing.RandomTranslation(height_mod, width_mod, interpolation='nearest')(model)
 
     for f in [128, 256]:
+        # Add the conv2d layers
         for _ in range(2):
-            model = tf.keras.layers.Conv2D(
-                filters=f, 
-                kernel_size=[3, 3],
-                padding='same', 
-                kernel_initializer=tf.keras.initializers.he_uniform(),
-                bias_initializer=tf.keras.initializers.constant(0.1),
-                kernel_regularizer=tf.keras.regularizers.l2(l2)
+            model = tfa.layers.WeightNormalization(
+                tf.keras.layers.Conv2D(
+                    filters=f, 
+                    kernel_size=[3, 3],
+                    padding='same', 
+                    kernel_initializer=tf.keras.initializers.he_uniform(),
+                    bias_initializer=tf.keras.initializers.constant(0.1),
+                    kernel_regularizer=tf.keras.regularizers.l2(l2)
+                ),
+                data_init=False
             )(model)
             model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
-            model = tf.keras.layers.BatchNormalization()(model)
+            # model = tf.keras.layers.BatchNormalization()(model)
+
+        # Add the pooling and dropout
         model = tf.keras.layers.MaxPool2D(pool_size=(2,2), padding='same')(model)
         model = tf.keras.layers.Dropout(dropout)(model)
-    model = tf.keras.layers.Conv2D(
-        filters=512, 
-        kernel_size=[3, 3],
-        padding='valid', 
-        kernel_initializer=tf.keras.initializers.he_uniform(),
-        bias_initializer=tf.keras.initializers.constant(0.1),
-        kernel_regularizer=tf.keras.regularizers.l2(l2)
-    )(model)
-    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
-    model = tf.keras.layers.BatchNormalization()(model)
 
-    model = tf.keras.layers.Conv2D(
-        filters=256, 
-        kernel_size=[1, 1],
-        padding='valid', 
-        kernel_initializer=tf.keras.initializers.he_uniform(),
-        bias_initializer=tf.keras.initializers.constant(0.1),
-        kernel_regularizer=tf.keras.regularizers.l2(l2)
+    # Add the final conv2D layers 
+    model = tfa.layers.WeightNormalization(
+        tf.keras.layers.Conv2D(
+            filters=512, 
+            kernel_size=[3, 3],
+            padding='valid', 
+            kernel_initializer=tf.keras.initializers.he_uniform(),
+            bias_initializer=tf.keras.initializers.constant(0.1),
+            kernel_regularizer=tf.keras.regularizers.l2(l2)
+        ),
+        data_init=False
     )(model)
     model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
-    model = tf.keras.layers.BatchNormalization()(model)
+    # model = tf.keras.layers.BatchNormalization()(model)
 
-    model = tf.keras.layers.Conv2D(
-        filters=128, 
-        kernel_size=[1,1],
-        padding='valid', 
-        kernel_initializer=tf.keras.initializers.he_uniform(),
-        bias_initializer=tf.keras.initializers.constant(0.1),
-        kernel_regularizer=tf.keras.regularizers.l2(l2)
+    model = tfa.layers.WeightNormalization(
+        tf.keras.layers.Conv2D(
+            filters=256, 
+            kernel_size=[1, 1],
+            padding='valid', 
+            kernel_initializer=tf.keras.initializers.he_uniform(),
+            bias_initializer=tf.keras.initializers.constant(0.1),
+            kernel_regularizer=tf.keras.regularizers.l2(l2)
+        ),
+        data_init=False
     )(model)
     model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
-    model = tf.keras.layers.BatchNormalization()(model)
+    # model = tf.keras.layers.BatchNormalization()(model)
+
+    model = tfa.layers.WeightNormalization(
+        tf.keras.layers.Conv2D(
+            filters=128, 
+            kernel_size=[1,1],
+            padding='valid', 
+            kernel_initializer=tf.keras.initializers.he_uniform(),
+            bias_initializer=tf.keras.initializers.constant(0.1),
+            kernel_regularizer=tf.keras.regularizers.l2(l2)
+        ),
+        data_init=False
+    )(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+    # model = tf.keras.layers.BatchNormalization()(model)
 
     model = tf.keras.layers.AveragePooling2D((6,6))(model)
 
     model = tf.keras.layers.Flatten()(model)
 
+    # TODO: normalize the output?
     output_layer = model = tf.keras.layers.Dense(
         units=10,
-        activation='softmax',
+        activation=output_activation,
         kernel_initializer=tf.keras.initializers.he_uniform(),
         bias_initializer=tf.keras.initializers.constant(0.1),
         kernel_regularizer=tf.keras.regularizers.l2(l2)
@@ -324,7 +344,6 @@ def cifar10_model(
     model = tf.keras.Model(inputs=input_layer, outputs=output_layer)
  
     return model
-
 
 
 class Supervised():
@@ -347,12 +366,20 @@ class Supervised():
 
         #model.summary()
 
-        return self.model.fit(
+        history = self.model.fit(
             train.X, train.y,
             validation_data=(valid.X, valid.y), 
             batch_size=self.args.batch_size,
-            epochs=self.args.epochs
+            epochs=self.args.epochs,
+            callbacks = [
+                tf.keras.callbacks.EarlyStopping(
+                    monitor='val_categorical_accuracy',
+                    patience=self.args.patience,
+                    restore_best_weights=True
+                )
+            ]
         ) 
+        return self.model, history.history
 
     def predict(self, X):
         return self.model.predict(X)
