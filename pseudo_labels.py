@@ -9,6 +9,8 @@ from nn_base import build_nn, pretrain_dae_nn
 
 from util import Data
 
+from generator import pseudo_label_generator
+
 rng = np.random.default_rng()
 
 UNLABELED = None
@@ -30,12 +32,16 @@ class PseudoLabels():
     This algorithm is primarily implemented as a custom loss function. Any loss passed in will not be used (yet)
     '''
 
-    def __init__(self, model, lrate, epochs, batch_size,
+    def __init__(self, model, 
+            lrate=0.0001, 
+            epochs=100, 
+            batch_size=100,
             steps_per_epoch=2,
             patience=500, min_delta=0.0,
             use_image_augmentation=False,
             use_dae=False, pretrain_lrate=0.001, pretrain_epochs=100,
-            af = 3.0, T1 = 200, T2 = 800
+            af = 3.0, T1 = 200, T2 = 800,
+            out_size = 10
         ):
         # store params
         self.lrate = lrate
@@ -65,7 +71,10 @@ class PseudoLabels():
 
         self.unlabeled = -1.0
 
-        self.model = model(do_image_augmentation = use_image_augmentation)
+        self.model = model(
+            output_activation='softmax',
+            do_image_augmentation = use_image_augmentation
+        )
 
         ## for scheduling alpha
         self.af = af
@@ -73,6 +82,8 @@ class PseudoLabels():
         self.T2 = T2
 
         self.alpha = 0.0 # initially
+
+        self.out_size = out_size
 
     def alpha_schedule(self, epoch_num):
         if epoch_num < self.T1:
@@ -94,32 +105,35 @@ class PseudoLabels():
         unlabeled = scalar of what value has been assigned to the unlabled samples
         num_classes = number of classes of Y
         alpha = alpha term of conditional cross-entropy
-
-        Main limitation: cannot schedule alpha (yet!) - would a callback work?
         '''
         # tf.print('pl_loss:', y_true, y_pred)
 
-        y_pl = K.one_hot(K.argmax(y_pred, axis=1), self.model.out_size)
-        y_pl = tf.cast(y_pl, y_true.dtype)
+        y_pl = K.one_hot(K.argmax(y_pred, axis=1), self.out_size)
+        y_pl = tf.cast(y_pred, y_true.dtype)
 
         # Calculate whether each sample in the batch is labeled or unlabeled
         index = y_true == self.unlabeled
+
+        # clip the predictions for numerical stability
+        # pred = K.clip(y_pred, 1e-12, 1 - 1e-12)
+        
+        # tf.print('y_pred', y_pred.shape, y_pred)
+        # tf.print('y_true', y_true.shape, y_true)
+        # tf.print('index', index.shape, index)
+        
         y_pl = tf.where(index, y_pl, y_true)
-        index = K.all(index, axis=1)
+        # tf.print('y_pl', y_pl.shape, y_pl)
+        
+        # tf.print('index', index.shape, index)
         # Set coefficient for each sample based on whether labeled or unlabeled
+        index = K.all(index, axis=1)
         coef_arr = tf.where(index, self.alpha, 1.0)
+        tf.print('coef_arr', coef_arr.shape)
 
-        # tf.print('coef_arr:', coef_arr)
-        # tf.print('labeled:', y_pl[labeled_index], y_pred[labeled_index])
-        # tf.print('unlabeled:', y_pl[unlabeled_index], y_pred[unlabeled_index])
-
-        # compute the loss labeled and pl seperately so we can apply alpha
-        loss = keras.losses.categorical_crossentropy(y_true, y_pred)
-
-        # loss = keras.losses.binary_crossentropy(y_pl, y_pred)
-
-        # tf.print('loss, coef_loss:', loss, coef_arr * loss)
-        # tf.print('normal loss:', keras.losses.binary_crossentropy(y_true, y_pred))
+        # compute the loss
+        loss = keras.losses.categorical_crossentropy(y_pl, y_pred)
+        tf.print('loss', loss.shape)
+        # loss = tf.nn.softmax_cross_entropy_with_logits(y_true, y_pred)
 
         return coef_arr * loss
 
@@ -130,6 +144,11 @@ class PseudoLabels():
             label_shape = (data.U.shape[0], data.y.shape[1])
         pseudo_labels = self.unlabeled * np.ones(label_shape, dtype=float)
 
+        X = np.append(data.X, data.U, axis=0)
+        y = np.append(data.y, pseudo_labels, axis=0)
+
+        
+
         return Data(
             np.append(data.X, data.U, axis=0),
             np.append(data.y, pseudo_labels, axis=0),
@@ -139,13 +158,10 @@ class PseudoLabels():
     def fit(self, train_data, validation_data):
         print('train data:', train_data.X.shape, train_data.y.shape, train_data.U.shape)
         u = train_data.U.shape[0]
+
         train_data = self.prelabel_data(train_data)
 
-        # print(train_data.X[u:u+2])
-        # print(train_data.y[u:u+2])
-        # print(train_data.y[0:2])
-
-        print('prelabeled data:', train_data.X.shape, train_data.y.shape)
+        # print('prelabeled data:', train_data.X.shape, train_data.y.shape)
 
         if self.use_dae:
 
@@ -170,7 +186,7 @@ class PseudoLabels():
             self.model.pretrain(dae_train, dae_valid, self.pretrain_epochs, self.pretrain_lrate)
 
         print('final model:')
-        # self.model.summary()
+        self.model.summary()
 
         # compile the model
         self.model.compile(
@@ -182,10 +198,9 @@ class PseudoLabels():
         # now, do the training (pseudo-labels & conditional cross-entropy)
 
         print('training on:', train_data.X.shape, train_data.y.shape)
-
+        tf.keras.Model().fit()
         history = self.model.fit(
             np.array(train_data.X), 
-            np.array(train_data.y),
             batch_size=self.batch_size,
             validation_data=(np.array(validation_data.X), np.array(validation_data.y)),
             callbacks=self.callbacks,
