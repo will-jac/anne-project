@@ -250,12 +250,12 @@ class Cifar10Model(tf.keras.Model):
 # define other models for other problems here
 
 def cifar10_model(
-        do_image_augmentation=True, 
-        noise_stdev=0.15,
-        height_mod = (0.1,0.1), width_mod = (0.1,0.1),
-        dropout=0.5, 
-        l2=0.001,
-        output_activation='softmax'
+    do_image_augmentation=True, 
+    noise_stdev=0.15,
+    height_mod = (0.1,0.1), width_mod = (0.1,0.1),
+    dropout=0.5, 
+    l2=0.001,
+    output_activation='softmax'
 ):
     input_layer = model = tf.keras.Input(shape=(32, 32, 3))
 
@@ -332,6 +332,146 @@ def cifar10_model(
 
     model = tf.keras.layers.Flatten()(model)
 
+    # TODO: normalize the output?
+    output_layer = model = tf.keras.layers.Dense(
+        units=10,
+        activation=output_activation,
+        kernel_initializer=tf.keras.initializers.he_uniform(),
+        bias_initializer=tf.keras.initializers.constant(0.1),
+        kernel_regularizer=tf.keras.regularizers.l2(l2)
+    )(model)
+
+    model = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+ 
+    return model
+
+
+def cifar10_model_pretrain(
+    X, y, validation_X, validation_y, epochs=1000, loss='mse', lrate=0.001,
+    do_image_augmentation=True, 
+    noise_stdev=0.15,
+    height_mod = (0.1,0.1), width_mod = (0.1,0.1),
+    dropout=0.5, 
+    l2=0.001,
+    output_activation='softmax'
+):
+
+    opt = tf.keras.optimizers.Adam(lr=lrate)
+    
+    input_layer = model = tf.keras.Input(shape=(32, 32, 3))
+
+    if do_image_augmentation:
+        model = tf.keras.layers.GaussianNoise(noise_stdev)(model)
+        model = tf.keras.layers.experimental.preprocessing.RandomFlip(mode='horizontal')(model)
+        model = tf.keras.layers.experimental.preprocessing.RandomTranslation(height_mod, width_mod, interpolation='nearest')(model)
+
+    # Add the conv2d layers
+    for f in [128, 256]:
+        for _ in range(2):
+            model = tfa.layers.WeightNormalization(
+                tf.keras.layers.Conv2D(
+                    filters=128, 
+                    kernel_size=[3, 3],
+                    padding='same', 
+                    kernel_initializer=tf.keras.initializers.he_uniform(),
+                    bias_initializer=tf.keras.initializers.constant(0.1),
+                    kernel_regularizer=tf.keras.regularizers.l2(l2)
+                ),
+                data_init=False
+            )(model)
+            model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+            # model = tf.keras.layers.BatchNormalization()(model)
+
+        # Add the pooling and dropout
+        model = tf.keras.layers.MaxPool2D(pool_size=(2,2), padding='same')(model)
+        model = tf.keras.layers.Dropout(dropout)(model)
+
+        # Flatten and add a dense layer to get an output
+        model = tf.keras.layers.Flatten()(model)
+        output_layer = model = tf.keras.layers.Dense(
+            X.shape[1], name='output', use_bias=True, kernel_regularizer=tf.keras.regularizers.L2(L2_reg)
+        )
+
+        # Train
+        model = tf.keras.Model(inputs=input_layer, outputs = output_layer)
+        model.compile(loss=loss, optimizer=opt)
+        model.fit(X, y, validation_data=(validation_X,validation_y),epochs=epochs)
+
+        # Freeze the model
+        model.trainable = False
+        # copy over the old layers to a new model
+        new_model = tf.keras.Input(shape=(32, 32, 3))
+        for layer in model.layers[:-2]: # up to, but not including, the last two layers of flatten and output
+            new_model = layer(new_model)
+        # reset for the next iteration
+        model = new_model
+
+    # Add the final conv2D layers 
+    model = tfa.layers.WeightNormalization(
+        tf.keras.layers.Conv2D(
+            filters=512, 
+            kernel_size=[3, 3],
+            padding='valid', 
+            kernel_initializer=tf.keras.initializers.he_uniform(),
+            bias_initializer=tf.keras.initializers.constant(0.1),
+            kernel_regularizer=tf.keras.regularizers.l2(l2)
+        ),
+        data_init=False
+    )(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+    # model = tf.keras.layers.BatchNormalization()(model)
+
+    model = tfa.layers.WeightNormalization(
+        tf.keras.layers.Conv2D(
+            filters=256, 
+            kernel_size=[1, 1],
+            padding='valid', 
+            kernel_initializer=tf.keras.initializers.he_uniform(),
+            bias_initializer=tf.keras.initializers.constant(0.1),
+            kernel_regularizer=tf.keras.regularizers.l2(l2)
+        ),
+        data_init=False
+    )(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+    # model = tf.keras.layers.BatchNormalization()(model)
+
+    model = tfa.layers.WeightNormalization(
+        tf.keras.layers.Conv2D(
+            filters=128, 
+            kernel_size=[1,1],
+            padding='valid', 
+            kernel_initializer=tf.keras.initializers.he_uniform(),
+            bias_initializer=tf.keras.initializers.constant(0.1),
+            kernel_regularizer=tf.keras.regularizers.l2(l2)
+        ),
+        data_init=False
+    )(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+    # model = tf.keras.layers.BatchNormalization()(model)
+
+    model = tf.keras.layers.AveragePooling2D((6,6))(model)
+
+    # Flatten and add a dense layer to get an output
+    model = tf.keras.layers.Flatten()(model)
+    output_layer = model = tf.keras.layers.Dense(
+        X.shape[1], name='output', use_bias=True, kernel_regularizer=tf.keras.regularizers.L2(L2_reg)
+    )
+    
+    # Train
+    model = tf.keras.Model(inputs=input_layer, outputs = output_layer)
+    model.compile(loss=loss, optimizer=opt)
+    model.fit(X, y, validation_data=(validation_X,validation_y),epochs=epochs)
+
+    ## Done pre-training!!
+    # Unfreeze the model
+    model.trainable = True
+    # create the real final model
+    new_model = tf.keras.Input(shape=(32, 32, 3))
+    for layer in model.layers[:-1]: # up to, but not including, the last layer of output
+        new_model = layer(new_model)
+    model = new_model
+
+    # add the proper ouput
     # TODO: normalize the output?
     output_layer = model = tf.keras.layers.Dense(
         units=10,

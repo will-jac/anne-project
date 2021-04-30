@@ -40,7 +40,7 @@ class PseudoLabels():
             patience=500, min_delta=0.0,
             use_image_augmentation=False,
             use_dae=False, pretrain_lrate=0.001, pretrain_epochs=100,
-            af = 3.0, T1 = 200, T2 = 800,
+            af = 1.0, T1 = 200, T2 = 800,
             out_size = 10
         ):
         # store params
@@ -51,6 +51,8 @@ class PseudoLabels():
         self.use_dae = use_dae
         self.pretrain_epochs = pretrain_epochs
         self.pretrain_lrate = pretrain_lrate
+        self.use_image_augmentation = use_image_augmentation
+
 
         self.callbacks = [
             keras.callbacks.EarlyStopping(
@@ -71,10 +73,13 @@ class PseudoLabels():
 
         self.unlabeled = -1.0
 
-        self.model = model(
-            output_activation='softmax',
-            do_image_augmentation = use_image_augmentation
-        )
+        if use_dae:
+            self.model = model
+        else:
+            self.model = model(
+                output_activation='softmax',
+                do_image_augmentation = use_image_augmentation
+            )
 
         ## for scheduling alpha
         self.af = af
@@ -87,16 +92,17 @@ class PseudoLabels():
 
     def alpha_schedule(self, epoch_num):
         if epoch_num < self.T1:
-            print('alpha set to 0.0')
+            # print('alpha set to 0.0')
             return 0.0
         if epoch_num < self.T2:
-            print('alpha set to', (epoch_num - self.T1) / (self.T2 - self.T1) * self.af)
+            # print('alpha set to', (epoch_num - self.T1) / (self.T2 - self.T1) * self.af)
             return (epoch_num - self.T1) / (self.T2 - self.T1) * self.af
         else:
-            print('alpha set to', self.af)
+            # print('alpha set to', self.af)
             return self.af
 
     def pl_loss(self, y_true, y_pred):
+        # tf.print('loss for:', y_true.shape, y_pred.shape, y_true[0])
         '''
         Custom loss function for pseudo-labeling
 
@@ -108,31 +114,32 @@ class PseudoLabels():
         '''
         # tf.print('pl_loss:', y_true, y_pred)
 
-        y_pl = K.one_hot(K.argmax(y_pred, axis=1), self.out_size)
-        y_pl = tf.cast(y_pred, y_true.dtype)
+        pl = K.one_hot(K.argmax(y_pred), self.out_size)
+        pl = tf.cast(pl, y_true.dtype)
 
         # Calculate whether each sample in the batch is labeled or unlabeled
         index = y_true == self.unlabeled
 
         # clip the predictions for numerical stability
         # pred = K.clip(y_pred, 1e-12, 1 - 1e-12)
-        
+
         # tf.print('y_pred', y_pred.shape, y_pred)
+        # tf.print('y_pl', pl.shape, pl)
         # tf.print('y_true', y_true.shape, y_true)
         # tf.print('index', index.shape, index)
         
-        y_pl = tf.where(index, y_pl, y_true)
+        y_pl = tf.where(index, pl, y_true)
         # tf.print('y_pl', y_pl.shape, y_pl)
         
         # tf.print('index', index.shape, index)
         # Set coefficient for each sample based on whether labeled or unlabeled
         index = K.all(index, axis=1)
         coef_arr = tf.where(index, self.alpha, 1.0)
-        tf.print('coef_arr', coef_arr.shape)
+        # tf.print('coef_arr', coef_arr.shape, coef_arr)
 
         # compute the loss
         loss = keras.losses.categorical_crossentropy(y_pl, y_pred)
-        tf.print('loss', loss.shape)
+        # tf.print('loss', loss.shape, loss)
         # loss = tf.nn.softmax_cross_entropy_with_logits(y_true, y_pred)
 
         return coef_arr * loss
@@ -159,14 +166,18 @@ class PseudoLabels():
         print('train data:', train_data.X.shape, train_data.y.shape, train_data.U.shape)
         u = train_data.U.shape[0]
 
-        train_data = self.prelabel_data(train_data)
+        # train_data = self.prelabel_data(train_data)
 
         # print('prelabeled data:', train_data.X.shape, train_data.y.shape)
 
         if self.use_dae:
 
-            dae_train_true = np.append(train_data.X, train_data.X, axis=0)
-            dae_valid_true = validation_data.X
+            dae_train_true = np.append(train_data.X, train_data.U, axis=0)
+            # subset the validation data
+            n = dae_train_true.shape[0]
+            dae_train_true = dae_train_true[n//10 :]
+            dae_valid_true = dae_train_true[0 : n//10]
+            
             # add corruption via a bitmask
             # could also just use a dropout layer here on the input
             train_mask = rng.integers(low=0, high=1, size=dae_train_true.shape, endpoint=True)
@@ -174,16 +185,16 @@ class PseudoLabels():
             dae_train_corrupted = dae_train_true * train_mask
             dae_valid_corrupted = dae_valid_true * valid_mask
 
-            dae_train = Data(dae_train_corrupted, dae_train_true, None)
-            dae_valid = Data(dae_valid_corrupted, dae_valid_true, None)
 
-            # Not using the above right now
-            # dae_train = LabeledData(train_data.Labele
-            # dae_valid = LabeledData(validation_data.X, validation_data.X)
+            print('building model with dae train', dae_train_corrupted.shape, dae_train_true.shape)
 
-            print('building model with dae train', dae_train.X.shape, dae_train.y.shape)
-
-            self.model.pretrain(dae_train, dae_valid, self.pretrain_epochs, self.pretrain_lrate)
+            self.model = self.model(
+                dae_train_corrupted, dae_train_true,
+                dae_valid_corrupted, dae_valid_corrupted,
+                100,
+                output_activation='softmax',
+                do_image_augmentation = self.use_image_augmentation
+            )
 
         print('final model:')
         self.model.summary()
@@ -198,10 +209,9 @@ class PseudoLabels():
         # now, do the training (pseudo-labels & conditional cross-entropy)
 
         print('training on:', train_data.X.shape, train_data.y.shape)
-        tf.keras.Model().fit()
+
         history = self.model.fit(
-            np.array(train_data.X), 
-            batch_size=self.batch_size,
+            x=pseudo_label_generator(train_data, self.batch_size, self.unlabeled),
             validation_data=(np.array(validation_data.X), np.array(validation_data.y)),
             callbacks=self.callbacks,
             epochs=self.epochs,
