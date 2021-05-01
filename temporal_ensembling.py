@@ -64,7 +64,7 @@ def pl_model_loss(X, y, U, model, unsupervised_weight):
     y_pred_labeled = model(X)
     y_pred_unlabeled = model(X)
 
-    y_pl = K.one_hot(K.argmax(y_pred_unlabeled), y.shape[1])
+    y_pl = tf.one_hot(tf.argmax(y_pred_unlabeled, axis=-1), y.shape[1])
     y_pl = tf.cast(y_pl, y.dtype)
 
     return tf.reduce_sum(tf.keras.losses.categorical_crossentropy(y, y_pred_labeled)) + \
