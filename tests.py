@@ -73,7 +73,7 @@ def cifar10_test (model, num_label=4000):
         test = util.Data(X_test, y_test, None)
         
         # Split training test into labeled and unlabeled
-        train = util.label_unlabel_split(X_train, y_train, num_label)
+        train = util.label_unlabel_split(X_train, y_train, num_label, 10)
 
         # Split training data into training and validation
         (train, valid) = util.train_test_valid_split(train.X, train.y, split=(0.9, 0.1), U = train.U)
