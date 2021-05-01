@@ -40,9 +40,9 @@ def label_unlabel_split(X, y, num_lab, shuffle=True, num_classes=10, one_hot = T
             ind = y == one_hot_c 
         else:
             ind = y == c
-        out_X.append(X[ind][num_lab:])
-        out_y.append(y[ind][num_lab:])
-        out_U.append(U[ind][0:num_lab])
+        out_X.append(X[ind][0 : num_lab // num_classes])
+        out_y.append(y[ind][0 : num_lab // num_classes])
+        out_U.append(U[ind][num_lab // num_classes : ])
 
     return Data(out_X, out_y, out_U)
 
