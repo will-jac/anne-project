@@ -32,12 +32,12 @@ def temporal_ensembling_gradients(X, y, U, model, unsupervised_weight, ensemblin
 
     return ensemble_precitions, loss_value, tape.gradient(loss_value, model.trainable_weights)
 
-def pi_model_loss(X, y, U, pi_model, unsupervised_weight):
-    z_labeled = pi_model(X)
-    z_labeled_i = pi_model(X)
+def pi_loss(X, y, U, model, unsupervised_weight):
+    z_labeled = model(X)
+    z_labeled_i = model(X)
 
-    z_unlabeled = pi_model(U)
-    z_unlabeled_i = pi_model(U)
+    z_unlabeled = model(U)
+    z_unlabeled_i = model(U)
     # Loss = supervised loss + unsup loss of labeled sample + unsup loss unlabeled sample
     # print(X.shape, z_labeled.shape, U.shape)
     # print('y',y)
@@ -51,14 +51,32 @@ def pi_model_loss(X, y, U, pi_model, unsupervised_weight):
         tf.reduce_mean(tf.keras.losses.mean_squared_error(z_unlabeled, z_unlabeled_i))
     )
 
-def pi_model_gradients(X, y, U, pi_model, unsupervised_weight, ensembling_targets=None):
+def pi_gradients(X, y, U, model, unsupervised_weight, ensembling_targets=None):
 
     with tf.GradientTape() as tape:
-        pi_loss = pi_model_loss(X, y, U, pi_model, unsupervised_weight)
+        loss = pi_loss(X, y, U, model, unsupervised_weight)
         # print('pi model loss:', pi_loss)
     
     # None to preserve compatibility with temporal ensembling
-    return None, pi_loss, tape.gradient(pi_loss, pi_model.trainable_weights)
+    return None, loss, tape.gradient(loss, model.trainable_weights)
+
+def pl_model_loss(X, y, U, model, unsupervised_weight):
+    y_pred_labeled = model(X)
+    y_pred_unlabeled = model(X)
+
+    y_pl = K.one_hot(K.argmax(y_pred_unlabeled), y.shape[1])
+    y_pl = tf.cast(y_pl, y.dtype)
+
+    return tf.reduce_sum(tf.keras.losses.categorical_crossentropy(y, y_pred_labeled)) + \
+        unsupervised_weight * tf.reduce_sum(tf.keras.losses.categorical_crossentropy(y_pl, y_pred_unlabeled))
+
+def pl_model_gradients(X, y, U, model, unsupervised_weight, ensembling_targets=None):
+    with tf.GradientTape() as tape:
+        loss = pl_model_loss(X, y, U, model, unsupervised_weight)
+        # print('pi model loss:', pi_loss)
+    
+    # None to preserve compatibility with temporal ensembling
+    return None, loss, tape.gradient(loss, model.trainable_weights)
 
 # Ramps the value of the weight and learning rate in the first 80 epochs, according to the paper
 def ramp_up_function(epoch, epoch_with_max_rampup=80):
@@ -78,7 +96,6 @@ def ramp_down_function(epoch, num_epochs, epoch_with_max_rampdown = 50):
         return math.exp(-(p * p) / epoch_with_max_rampdown)
     else:
         return 1.0
-
 
 class _ModelBase():
     
@@ -121,6 +138,7 @@ class _ModelBase():
 
         self.te = False
         self.pi = False
+        self.pl = False
 
     def fit(self, train_data, validation_data):
         
@@ -133,7 +151,7 @@ class _ModelBase():
         # define a data generator
         # self.num_batches = (train_data.X.shape[0]  + train_data.U.shape[0]) // self.batch_size 
         generator = training_generator(train_data, self.batch_size, self.min_labeled_per_epoch)
-
+        
         best_val_accuracy = 0.0
         epochs_without_improvement = 0
 
@@ -416,3 +434,26 @@ class PiModel(_ModelBase):
 
     # def predict(self, X):
     #     return self.model(X, training=False)
+
+class PseudoLabels(_ModelBase):
+    def __init__(self, model,
+        epochs=1000, 
+        batch_size=100, 
+        min_labeled_per_epoch=None,
+        steps_per_epoch=2,
+        patience=500,
+        lrate=0.0002,
+        alpha=0.6, beta_1=[0.9,0.5], beta_2=0.98,
+        max_unsupervised_weight=0.5,
+        use_image_augmentation=False
+    ):
+        super().__init__(
+            model, 
+            epochs, batch_size, min_labeled_per_epoch, steps_per_epoch, patience, lrate, 
+            alpha, beta_1, beta_2, max_unsupervised_weight, 
+            use_image_augmentation
+        )
+
+        self.pl = True
+        self.loss = pl_model_loss
+        self.gradients = pl_model_gradients 
