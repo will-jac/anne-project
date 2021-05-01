@@ -1,6 +1,6 @@
 
-from pseudo_labels import PseudoLabels
-from temporal_ensembling import PiModel, TemporalEnsembling
+# from pseudo_labels import PseudoLabels
+from temporal_ensembling import PiModel, TemporalEnsembling, PseudoLabels
 from base_models import Supervised
 
 # TODO: make this form of passing a model work for pseudo labels
@@ -9,10 +9,11 @@ models = {
     'pl' : lambda model, args : PseudoLabels(model, 
             lrate=args.lrate, 
             epochs=args.epochs,
+            min_labeled_per_epoch=args.min_labeled_per_epoch,
             batch_size=args.batch_size,
-            patience=args.patience,
             steps_per_epoch=args.steps_per_epoch,
-            use_dae=args.use_dae
+            patience=args.patience,
+            use_image_augmentation=args.use_image_augmentation
         ),
     'pi' : lambda model, args : PiModel(model, 
             epochs=args.epochs,
