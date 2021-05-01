@@ -16,7 +16,7 @@ from sklearn.metrics import roc_curve, plot_roc_curve
 # Return the accuracy based on the test set. 
 # test-specific models
 
-from base_models import Cifar10Model, cifar10_model
+from base_models import *
 
 def adult_test(model, u=0.8):
 
@@ -62,9 +62,10 @@ def cifar10_test (model, num_label=4000):
         # print('y_train sample:', y_train[0:10])
         y_test = np.eye(10)[y_test.reshape(-1)]
         # print('y_test sample:', y_test[0:10])
-        # cast it all to floats for image augmentation
-        X_train = X_train.astype(float)
-        X_test = X_test.astype(float)
+        # cast it all to floats for image augmentation, rescale to [0,1]
+        X_train = X_train.astype('float32') / 255.0
+        X_test = X_test.astype('float32') / 255.0
+        
         # X_train, y_train, X_test, y_test = cifar_10.load_cifar_10()
 
         print('loaded cifar10', X_train.shape, X_test.shape)
@@ -115,5 +116,6 @@ def svhn_test (model, u=0.8):
 # return test-specific model and the testing function (which should accept a model and return the accuracy)
 tests = {
     'cifar10' : (Cifar10Model, cifar10_test),
-    'cifar10_experimental' : (cifar10_model, cifar10_test)
+    'cifar10_experimental' : (cifar10_model, cifar10_test),
+    'cifar10_experimental_pretrain' : (cifar10_model_pretrain, cifar10_test),
 }
