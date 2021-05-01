@@ -453,7 +453,7 @@ class PseudoLabels(_ModelBase):
             alpha, beta_1, beta_2, max_unsupervised_weight, 
             use_image_augmentation
         )
-
+        self.name = 'Pseudo Labels'
         self.pl = True
         self.loss = pl_model_loss
         self.gradients = pl_model_gradients 
