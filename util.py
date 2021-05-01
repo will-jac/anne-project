@@ -24,13 +24,27 @@ def percent_wrong(predict, true):
             wrong += 1
     return 1.0 * wrong / n
 
-def label_unlabel_split(X, y, num_lab, shuffle=True):
+def label_unlabel_split(X, y, num_lab, shuffle=True, num_classes=10, one_hot = True):
     if shuffle:
         permutation = np.random.permutation(X.shape[0])
         # Shuffle the arrays by giving the permutation in the square brackets.
         X, y = X[permutation], y[permutation]
+    # split, ensuring that the ratio of classes is the same
+    out_X = []
+    out_y = []
+    out_U = []
+    for c in range(num_classes):
+        if one_hot:
+            one_hot_c = np.zeros(num_classes)
+            one_hot_c[c] = 1
+            ind = y == one_hot_c 
+        else:
+            ind = y == c
+        out_X.append(X[ind][num_lab:])
+        out_y.append(y[ind][num_lab:])
+        out_U.append(U[ind][0:num_lab])
 
-    return Data(X[0:num_lab], y[0:num_lab], X[num_lab:])
+    return Data(out_X, out_y, out_U)
 
 def train_test_valid_split(X, y, split=(0.8, 0.1, 0.1), shuffle=True, U=None):
     assert sum(split) == 1
@@ -50,14 +64,29 @@ def train_test_valid_split(X, y, split=(0.8, 0.1, 0.1), shuffle=True, U=None):
     stop = 0
     # Data object used for implicit type checking / inferrence
     split_data = [None]*len(split)
+
+    # split, ensuring that the ratio of classes is the same
+    out_X = []
+    out_y = []
+    for c in range(num_classes):
+        if one_hot:
+            one_hot_c = np.zeros(num_classes)
+            one_hot_c[c] = 1
+            ind = y == one_hot_c 
+        else:
+            ind = y == c
+        out_X.append(X[ind])
+        out_y.append(y[ind])
+        
     # for train, test, valid
     for i in range(len(split)):
         stop  = int(n * sum(split[0:i+1]))
+
         if i == 0 and (U is not None):
             # put all the unlabeled data in the first element
-            split_data[i] = Data(X[start:stop,:], y[start:stop], U)
+            split_data[i] = Data(out_X[start:stop,:], out_y[start:stop], U)
         else:
-            split_data[i] = Data(X[start:stop,:], y[start:stop], None)
+            split_data[i] = Data(out_X[start:stop,:], out_y[start:stop], None)
         start = stop
     return tuple(split_data)
 

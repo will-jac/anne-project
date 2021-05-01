@@ -65,7 +65,7 @@ def cifar10_test (model, num_label=4000):
         # cast it all to floats for image augmentation, rescale to [0,1]
         X_train = X_train.astype('float32') / 255.0
         X_test = X_test.astype('float32') / 255.0
-        
+
         # X_train, y_train, X_test, y_test = cifar_10.load_cifar_10()
 
         print('loaded cifar10', X_train.shape, X_test.shape)
@@ -76,7 +76,7 @@ def cifar10_test (model, num_label=4000):
         train = util.label_unlabel_split(X_train, y_train, num_label)
 
         # Split training data into training and validation
-        (train, valid) = util.train_test_valid_split(train.X, train.y, split=(0.9, 0.1), U = train.U) # TODO specify validation/train split?
+        (train, valid) = util.train_test_valid_split(train.X, train.y, split=(0.9, 0.1), U = train.U)
 
         # One-hot encode cifar_10.y_train and cifar_10.y_test?
         ## ^^ yes. Done.
