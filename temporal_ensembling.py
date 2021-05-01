@@ -19,7 +19,7 @@ def temporal_ensembling_loss(X, y, U, model, unsupervised_weight, ensembling_tar
 
     pred = tf.concat([z_X, z_U], 0)
 
-    return pred, tf.keras.losses.categorical_crossentropy(y, z_X) + \
+    return pred, tf.reduce_sum(tf.keras.losses.categorical_crossentropy(y, z_X)) + \
         unsupervised_weight * \
         tf.reduce_sum(tf.keras.losses.mean_squared_error(ensembling_targets, pred))
 
@@ -46,7 +46,7 @@ def pi_model_loss(X, y, U, pi_model, unsupervised_weight):
     # print(tf.keras.losses.mean_squared_error(z_labeled, z_labeled_i))
     # print(tf.keras.losses.mean_squared_error(z_unlabeled, z_unlabeled_i))
     # print(z_labeled.shape, z_labeled_i.shape, y.shape, z_unlabeled.shape, z_unlabeled_i.shape)
-    return tf.keras.losses.categorical_crossentropy(y, z_labeled) + unsupervised_weight * (
+    return tf.reduce_sum(tf.keras.losses.categorical_crossentropy(y, z_labeled)) + unsupervised_weight * (
         tf.reduce_mean(tf.keras.losses.mean_squared_error(z_labeled, z_labeled_i)) +
         tf.reduce_mean(tf.keras.losses.mean_squared_error(z_unlabeled, z_unlabeled_i))
     )
@@ -56,8 +56,9 @@ def pi_model_gradients(X, y, U, pi_model, unsupervised_weight, ensembling_target
     with tf.GradientTape() as tape:
         pi_loss = pi_model_loss(X, y, U, pi_model, unsupervised_weight)
         # print('pi model loss:', pi_loss)
-        
-    return pi_loss, tape.gradient(pi_loss, pi_model.trainable_weights)
+    
+    # None to preserve compatibility with temporal ensembling
+    return None, pi_loss, tape.gradient(pi_loss, pi_model.trainable_weights)
 
 # Ramps the value of the weight and learning rate in the first 80 epochs, according to the paper
 def ramp_up_function(epoch, epoch_with_max_rampup=80):
@@ -79,11 +80,12 @@ def ramp_down_function(epoch, num_epochs, epoch_with_max_rampdown = 50):
         return 1.0
 
 
-class _TePiBase():
+class _ModelBase():
     
     def __init__(self, model,
             epochs=1000, 
             batch_size=100, 
+            min_labeled_per_epoch=10,
             steps_per_epoch=2,
             patience=500,
             lrate=0.0002,
@@ -96,6 +98,7 @@ class _TePiBase():
 
         self.epochs = epochs
         self.batch_size = batch_size
+        self.min_labeled_per_epoch = min_labeled_per_epoch
         self.steps_per_epoch=steps_per_epoch
         self.patience=patience
 
@@ -129,7 +132,7 @@ class _TePiBase():
 
         # define a data generator
         # self.num_batches = (train_data.X.shape[0]  + train_data.U.shape[0]) // self.batch_size 
-        generator = training_generator(train_data, self.batch_size)
+        generator = training_generator(train_data, self.batch_size, self.min_labeled_per_epoch)
 
         best_val_accuracy = 0.0
         epochs_without_improvement = 0
@@ -162,6 +165,9 @@ class _TePiBase():
                 if self.te:
                     ensemble_indexes = np.concatenate([Xi, train_data.X.shape[0] + Ui])
                     ensemble_targets = z[ensemble_indexes]
+                else:
+                    ensemble_indexes = None
+                    ensemble_targets = None
 
                 # this basically evals the model
                 current_outputs, loss_val, grads = self.gradients(
@@ -220,11 +226,11 @@ class _TePiBase():
     def predict(self, X):
         return self.model(X, training=False)
 
-
-class TemporalEnsembling(_TePiBase):
+class TemporalEnsembling(_ModelBase):
     def __init__(self, model,
             epochs=1000, 
             batch_size=100, 
+            min_labeled_per_epoch=None,
             steps_per_epoch=2,
             patience=500,
             lrate=0.0002,
@@ -232,22 +238,23 @@ class TemporalEnsembling(_TePiBase):
             max_unsupervised_weight=0.5,
             use_image_augmentation=False
         ):
-        super(
+        super().__init__(
             model, 
-            epochs, batch_size, steps_per_epoch, patience, lrate, 
+            epochs, batch_size, min_labeled_per_epoch, steps_per_epoch, patience, lrate, 
             alpha, beta_1, beta_2, max_unsupervised_weight, 
-            do_image_augmentation
+            use_image_augmentation
         )
 
         self.te = True
         self.loss = temporal_ensembling_loss
         self.gradients = temporal_ensembling_gradients 
 
-class PiModel():
+class PiModel(_ModelBase):
     
     def __init__(self, model,
         epochs=1000, 
         batch_size=100, 
+        min_labeled_per_epoch=None,
         steps_per_epoch=2,
         patience=500,
         lrate=0.0002,
@@ -255,11 +262,11 @@ class PiModel():
         max_unsupervised_weight=0.5,
         use_image_augmentation=False
     ):
-        super(
+        super().__init__(
             model, 
-            epochs, batch_size, steps_per_epoch, patience, lrate, 
+            epochs, batch_size, min_labeled_per_epoch, steps_per_epoch, patience, lrate, 
             alpha, beta_1, beta_2, max_unsupervised_weight, 
-            do_image_augmentation
+            use_image_augmentation
         )
 
         self.pi = True
