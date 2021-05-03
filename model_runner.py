@@ -214,6 +214,7 @@ class _ModelBase():
             # optimize to this training data
             Xi, Ui = next(generator)
             X, y, U = train_data.X[Xi], train_data.y[Xi], train_data.U[Ui]
+            # perform a minibatch
             for batch_num in range(self.steps_per_epoch):
 
                 if self.te:
