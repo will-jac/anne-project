@@ -18,6 +18,11 @@ from sklearn.metrics import roc_curve, plot_roc_curve
 
 from base_models import *
 
+def whiten_norm(x):
+    x = x - np.mean(x, axis=(1, 2, 3), keepdims=True)
+    x = x / (np.mean(x ** 2, axis=(1, 2, 3), keepdims=True) ** 0.5)
+    return x
+
 def adult_test(model, u=0.8):
 
     # turn the labels into a proper matrix
@@ -62,9 +67,16 @@ def cifar10_test (model, num_label=4000):
         # print('y_train sample:', y_train[0:10])
         y_test = np.eye(10)[y_test.reshape(-1)]
         # print('y_test sample:', y_test[0:10])
+        
         # cast it all to floats for image augmentation, rescale to [0,1]
-        X_train = X_train.astype('float32') / 255.0
-        X_test = X_test.astype('float32') / 255.0
+        X_train = X_train.astype('float32') / np.float(255.0)
+        X_test = X_test.astype('float32') / np.float(255.0)
+
+        # whiten the data or apply zca
+        X_train = whiten_norm(X_train)
+        X_test  = whiten_norm(X_test)
+        # X_train = whiten_norm(X_train)
+        # X_test  = whiten_norm(X_test)
 
         # X_train, y_train, X_test, y_test = cifar_10.load_cifar_10()
 
