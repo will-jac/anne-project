@@ -13,22 +13,22 @@ configs = {
         'method' : 'pi',
         'test' : 'cifar10_experimental',
         'dir' : './results/cifar10/pi',
-        'epochs' : 5000,
+        'epochs' : 1000,
         'batch_size' : 200,
-        'min_labeled_per_epoch' : 100,
-        'patience' : 500,
-        'steps_per_epoch' : 100,
+        'min_labeled_per_epoch' : None,
+        'patience' : 1000,
+        'steps_per_epoch' : 10,
         'use_image_augmentation' : True,
     },
     'cifar10te' : {
         'method' : 'te',
         'test' : 'cifar10_experimental',
         'dir' : './results/cifar10/te',
-        'epochs' : 10000,
+        'epochs' : 1000,
         'batch_size' : 200,
-        'min_labeled_per_epoch' : 100,
-        'patience' : 500,
-        'steps_per_epoch' : 100,
+        'min_labeled_per_epoch' : None,
+        'patience' : 1000,
+        'steps_per_epoch' : 10,
         'use_image_augmentation' : True,
     },
     'cifar10pl' : {
@@ -38,8 +38,8 @@ configs = {
         'lrate' : 0.0001,
         'epochs' : 1000,
         'batch_size' : 200,
-        'min_labeled_per_epoch' : 100,
-        'patience' : 500,   
+        'min_labeled_per_epoch' : None,
+        'patience' : 1000,   
         'steps_per_epoch' : 10,
         'use_image_augmentation' : False,
         'use_dae' : False,
@@ -63,9 +63,9 @@ configs = {
         'dir' : './results/cifar10/supervised',
         'lrate' : 0.0001,
         'epochs' : 1000,
-        'batch_size' : 100,
+        'batch_size' : 200,
         'patience' : 500,
-        'steps_per_epoch' : 2,
+        'steps_per_epoch' : 10,
         'use_image_augmentation' : True,
     }
 }
@@ -108,12 +108,15 @@ if __name__ == "__main__":
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     import sys
+    for arg in sys.argv[1:]:
+        print('\nrunning experiment:', arg, '\n')
+        if arg in configs:
+            config = configs[arg]
+            print(config)
+            model, results = execute_exp(config)
 
-    if sys.argv[1] in configs:
-        config = configs[sys.argv[1]]
+            save_results(model, results, config['dir'])
+        else:
+            print('error:', sys.argv[1], 'not found')
         
-        model, results = execute_exp(config)
-
-        save_results(model, results, config['dir'])
-    else:
-        print('error:', sys.argv[1], 'not found')
+        print('\n')
