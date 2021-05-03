@@ -1,7 +1,7 @@
 # from scratch tensorflow implementation of temporal ensembling 
 #   since I couldn't even get theano / lasagne to import, in part due to the discontinuation
 #   of development on theano, I thought this would be a more principled approach.
-
+import os
 import math
 import numpy as np 
 import tensorflow as tf
@@ -60,7 +60,7 @@ def pi_gradients(X, y, U, model, unsupervised_weight, ensembling_targets=None):
     # None to preserve compatibility with temporal ensembling
     return None, loss, tape.gradient(loss, model.trainable_weights)
 
-def pl_model_loss(X, y, U, model, unsupervised_weight):
+def pl_loss(X, y, U, model, unsupervised_weight):
     y_pred_labeled = model(X)
     y_pred_unlabeled = model(X)
 
@@ -70,9 +70,9 @@ def pl_model_loss(X, y, U, model, unsupervised_weight):
     return tf.reduce_sum(tf.keras.losses.categorical_crossentropy(y, y_pred_labeled)) + \
         unsupervised_weight * tf.reduce_sum(tf.keras.losses.categorical_crossentropy(y_pl, y_pred_unlabeled))
 
-def pl_model_gradients(X, y, U, model, unsupervised_weight, ensembling_targets=None):
+def pl_gradients(X, y, U, model, unsupervised_weight, ensembling_targets=None):
     with tf.GradientTape() as tape:
-        loss = pl_model_loss(X, y, U, model, unsupervised_weight)
+        loss = pl_loss(X, y, U, model, unsupervised_weight)
         # print('pi model loss:', pi_loss)
     
     # None to preserve compatibility with temporal ensembling
@@ -97,6 +97,17 @@ def ramp_down_function(epoch, num_epochs, epoch_with_max_rampdown = 50):
     else:
         return 1.0
 
+def alpha_schedule(epoch, T1=100, T2=600, af=3.0):
+    if epoch < T1:
+        # print('alpha set to 0.0')
+        return 0.0
+    elif epoch < T2:
+        # print('alpha set to', (epoch_num - self.T1) / (self.T2 - self.T1) * self.af)
+        return (epoch - T1) / (T2 - T1) * af
+    else:
+        # print('alpha set to', self.af)
+        return af
+
 class _ModelBase():
     
     def __init__(self, model,
@@ -106,18 +117,26 @@ class _ModelBase():
             steps_per_epoch=2,
             patience=500,
             lrate=0.0002,
+            ramp_up=200,
+            ramp_down=200,
             alpha=0.6, beta_1=[0.9,0.5], beta_2=0.98,
             max_unsupervised_weight=0.5,
             use_image_augmentation=False
         ):
 
         self.checkpoint_directory = './checkpoints'
+        self.checkpoint_prefix = os.path.join(self.checkpoint_directory, "ckpt")
 
-        self.epochs = epochs
+
+        self.epochs = self.max_epochs = epochs
         self.batch_size = batch_size
         self.min_labeled_per_epoch = min_labeled_per_epoch
         self.steps_per_epoch=steps_per_epoch
         self.patience=patience
+        self.epochs_without_improvement = 0
+
+        self.ramp_up=ramp_up
+        self.ramp_down=ramp_down
 
         self.max_lrate = lrate
 
@@ -148,6 +167,12 @@ class _ModelBase():
 
             sample_epoch = np.zeros((train_data.X.shape[0] + train_data.U.shape[0], 1))
 
+        if self.pi:
+            if self.min_labeled_per_epoch is None:
+                unsupervised_weight = 80 * train_data.X[0] / train_data.U[0]
+            else:
+                unsupervised_weight = 80 * self.min_labeled_per_epoch / self.batch_size
+                
         # define a data generator
         # self.num_batches = (train_data.X.shape[0]  + train_data.U.shape[0]) // self.batch_size 
         generator = training_generator(train_data, self.batch_size, self.min_labeled_per_epoch)
@@ -159,14 +184,17 @@ class _ModelBase():
         val_acc = []
 
         # custom training loop
-        for epoch in range(self.epochs):
-            rampdown_value = ramp_down_function(epoch, self.epochs)
-            rampup_value = ramp_up_function(epoch)
+        for epoch in range(self.max_epochs):
+            rampdown_value = ramp_down_function(epoch, self.epochs, self.ramp_down)
+            rampup_value = ramp_up_function(epoch, self.ramp_up)
 
-            if epoch == 0:
-                unsupervised_weight = 0
-            else:
-                unsupervised_weight = self.max_unsupervised_weight * rampup_value
+            if self.te:
+                if epoch == 0:
+                    unsupervised_weight = 0
+                else:
+                    unsupervised_weight = self.max_unsupervised_weight * rampup_value
+            if self.pl:
+                unsupervised_weight = alpha_schedule(epoch)
 
             self.lrate.assign(rampup_value * rampdown_value * self.max_lrate)
             self.beta_1.assign(rampdown_value * self.beta_1_start + (1.0 - rampdown_value) * self.beta_1_end)
@@ -176,9 +204,10 @@ class _ModelBase():
             epoch_loss_avg_validation = 0.0
             epoch_accuracy_validation = tf.keras.metrics.CategoricalAccuracy()
 
+            # optimize to this training data
+            Xi, Ui = next(generator)
+            X, y, U = train_data.X[Xi], train_data.y[Xi], train_data.U[Ui]
             for batch_num in range(self.steps_per_epoch):
-                Xi, Ui = next(generator)
-                X, y, U = train_data.X[Xi], train_data.y[Xi], train_data.U[Ui]
 
                 if self.te:
                     ensemble_indexes = np.concatenate([Xi, train_data.X.shape[0] + Ui])
@@ -187,7 +216,7 @@ class _ModelBase():
                     ensemble_indexes = None
                     ensemble_targets = None
 
-                # this basically evals the model
+                # this evals the model
                 current_outputs, loss_val, grads = self.gradients(
                     X, y, U, self.model, unsupervised_weight, ensemble_targets
                 )
@@ -218,7 +247,7 @@ class _ModelBase():
             print("Epoch {:03d}/{:03d}: Train Loss: {:9.7f}, Train Accuracy: {:02.6%}, Validation Loss: {:9.7f}, "
               "Validation Accuracy: {:02.6%}, lr={:.9f}, unsupervised weight={:5.3f}, beta1={:.9f}".format(
                 epoch,
-                self.epochs,
+                self.max_epochs,
                 epoch_loss_avg.result(),
                 epoch_accuracy.result(),
                 epoch_loss_avg_validation,
@@ -228,16 +257,29 @@ class _ModelBase():
                 self.beta_1.numpy()
             ))
 
+            self.epochs_without_improvement += 1
             # If the accuracy of validation improves save a checkpoint
             if best_val_accuracy < epoch_accuracy_validation.result():
+                self.epochs_without_improvement = 0
                 best_val_accuracy = epoch_accuracy_validation.result()
                 checkpoint = tf.train.Checkpoint(optimizer=self.opt, model=self.model)
-                checkpoint.save(file_prefix=self.checkpoint_directory)
+                checkpoint.save(file_prefix=self.checkpoint_prefix)
+
+            if self.epochs_without_improvement > self.patience:
+                # no improvement. Instead of quitting, start ramping down
+                print('starting ramp down')
+                self.epochs = epoch + self.ramp_down
+                self.patience = np.inf # avoid doing this again
+
+            if epoch == self.epochs:
+                print('stopping due to max epochs')
+                # stop!
+                break
 
         print('\nTrain Ended! Best Validation accuracy = {}\n'.format(best_val_accuracy))
         # Load the best model
         root = tf.train.Checkpoint(optimizer=self.opt, model=self.model)
-        root.restore(tf.train.latest_checkpoint(self.checkpoint_directory))
+        root.restore(tf.train.latest_checkpoint(self.checkpoint_prefix))
 
         return {'train':train_acc, 'val':val_acc}
 
@@ -252,6 +294,8 @@ class TemporalEnsembling(_ModelBase):
             steps_per_epoch=2,
             patience=500,
             lrate=0.0002,
+            ramp_up=200,
+            ramp_down=200,
             alpha=0.6, beta_1=[0.9,0.5], beta_2=0.98,
             max_unsupervised_weight=0.5,
             use_image_augmentation=False
@@ -259,10 +303,12 @@ class TemporalEnsembling(_ModelBase):
         super().__init__(
             model, 
             epochs, batch_size, min_labeled_per_epoch, steps_per_epoch, patience, lrate, 
+            ramp_up, ramp_down,
             alpha, beta_1, beta_2, max_unsupervised_weight, 
             use_image_augmentation
         )
 
+        self.name = 'temporal ensembling'
         self.te = True
         self.loss = temporal_ensembling_loss
         self.gradients = temporal_ensembling_gradients 
@@ -276,6 +322,8 @@ class PiModel(_ModelBase):
         steps_per_epoch=2,
         patience=500,
         lrate=0.0002,
+        ramp_up=200,
+        ramp_down=200,
         alpha=0.6, beta_1=[0.9,0.5], beta_2=0.98,
         max_unsupervised_weight=0.5,
         use_image_augmentation=False
@@ -283,13 +331,14 @@ class PiModel(_ModelBase):
         super().__init__(
             model, 
             epochs, batch_size, min_labeled_per_epoch, steps_per_epoch, patience, lrate, 
+            ramp_up, ramp_down,
             alpha, beta_1, beta_2, max_unsupervised_weight, 
             use_image_augmentation
         )
-
+        self.name = 'pi'
         self.pi = True
-        self.loss = pi_model_loss
-        self.gradients = pi_model_gradients 
+        self.loss = pi_loss
+        self.gradients = pi_gradients 
 
     # def __init__(self, model,
     #         epochs=1000, 
@@ -443,17 +492,20 @@ class PseudoLabels(_ModelBase):
         steps_per_epoch=2,
         patience=500,
         lrate=0.0002,
+        ramp_up=200,
+        ramp_down=200,
         alpha=0.6, beta_1=[0.9,0.5], beta_2=0.98,
         max_unsupervised_weight=0.5,
         use_image_augmentation=False
     ):
         super().__init__(
             model, 
-            epochs, batch_size, min_labeled_per_epoch, steps_per_epoch, patience, lrate, 
+            epochs, batch_size, min_labeled_per_epoch, steps_per_epoch, patience, lrate,
+            ramp_up, ramp_down, 
             alpha, beta_1, beta_2, max_unsupervised_weight, 
             use_image_augmentation
         )
         self.name = 'Pseudo Labels'
         self.pl = True
-        self.loss = pl_model_loss
-        self.gradients = pl_model_gradients 
+        self.loss = pl_loss
+        self.gradients = pl_gradients 
