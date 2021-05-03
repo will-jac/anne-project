@@ -176,9 +176,9 @@ class _ModelBase():
 
         if self.pi:
             if self.min_labeled_per_epoch is None:
-                unsupervised_weight = 80 * train_data.X[0] / train_data.U[0]
+                unsupervised_weight = float(80 * train_data.X.shape[0]) / train_data.U.shape[0]
             else:
-                unsupervised_weight = 80 * self.min_labeled_per_epoch / self.batch_size
+                unsupervised_weight = float(80 * self.min_labeled_per_epoch) / self.batch_size
 
         # define a data generator
         # self.num_batches = (train_data.X.shape[0]  + train_data.U.shape[0]) // self.batch_size 
@@ -252,8 +252,8 @@ class _ModelBase():
             train_acc.append(float(epoch_accuracy.result()))
             val_acc.append(float(epoch_accuracy_validation.result()))
 
-            print("Epoch {:03d}/{:03d}: Train Loss: {:9.7f}, Train Accuracy: {:02.6%}, Validation Loss: {:9.7f}, "
-              "Validation Accuracy: {:02.6%}, lr={:.9f}, unsupervised weight={:5.3f}, beta1={:.9f}".format(
+            print("Epoch {:03d}/{:03d}: Train Loss: {:5.2f}, Train Accuracy: {:02.2%}, Validation Loss: {:5.2f}, "
+              "Validation Accuracy: {:02.2%}, lr={:.9f}, unsupervised weight={:5.3f}, beta1={:.9f}".format(
                 epoch,
                 self.max_epochs,
                 epoch_loss_avg.result(),
