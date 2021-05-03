@@ -10,6 +10,11 @@ import tensorflow_addons as tfa
 
 from generator import training_generator
 
+def gaussian_noise(inputs, std):
+
+    noise = tf.random.normal(shape=tf.shape(inputs), mean=0.0, stddev=std, dtype=tf.float32)
+    return inputs + noise
+
 # for more information about how to use the loss / gradients defined here, see
 # https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
 
@@ -34,10 +39,11 @@ def temporal_ensembling_gradients(X, y, U, model, unsupervised_weight, ensemblin
 
 def pi_loss(X, y, U, model, unsupervised_weight):
     z_labeled = model(X)
-    z_labeled_i = model(X)
+    # additive gaussian noise added to one branch
+    z_labeled_i = model(gaussian_noise(X, 0.1))
 
     z_unlabeled = model(U)
-    z_unlabeled_i = model(U)
+    z_unlabeled_i = model(gaussian_noise(U, 0.1))
     # Loss = supervised loss + unsup loss of labeled sample + unsup loss unlabeled sample
     # print(X.shape, z_labeled.shape, U.shape)
     # print('y',y)
@@ -97,6 +103,7 @@ def ramp_down_function(epoch, num_epochs, epoch_with_max_rampdown = 50):
     else:
         return 1.0
 
+# unsupervised weight scheduler for pseudo labels
 def alpha_schedule(epoch, T1=100, T2=600, af=3.0):
     if epoch < T1:
         # print('alpha set to 0.0')
@@ -172,7 +179,7 @@ class _ModelBase():
                 unsupervised_weight = 80 * train_data.X[0] / train_data.U[0]
             else:
                 unsupervised_weight = 80 * self.min_labeled_per_epoch / self.batch_size
-                
+
         # define a data generator
         # self.num_batches = (train_data.X.shape[0]  + train_data.U.shape[0]) // self.batch_size 
         generator = training_generator(train_data, self.batch_size, self.min_labeled_per_epoch)
