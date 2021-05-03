@@ -1,6 +1,6 @@
 
 # from pseudo_labels import PseudoLabels
-from temporal_ensembling import PiModel, TemporalEnsembling, PseudoLabels
+from model_runner import PiModel, TemporalEnsembling, PseudoLabels
 from base_models import Supervised
 
 # TODO: make this form of passing a model work for pseudo labels
