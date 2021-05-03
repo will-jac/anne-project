@@ -4,7 +4,7 @@ import numpy as np
 # I'd really love for this to be deterministic, but it won't be, and really, that's okay
 def training_generator(data, batch_size=10, min_labeled_per_epoch=None):
     # x_index = u_index = 0
-    if min_labeled_per_epoch:
+    if min_labeled_per_epoch is None:
         labeled_to_total_ratio = data.X.shape[0] / (data.X.shape[0] + data.U.shape[0])
     
         x_size = int(round(batch_size*(labeled_to_total_ratio)))
