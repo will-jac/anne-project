@@ -175,7 +175,7 @@ def svhn_test (model, num_label=500):
 
     return model, {'hist':hist, 'acc':acc}
     
-def mnist_test (model, num_label=100):
+def mnist_test (model, num_label=1000):
     # Load SVHN dataset
     # load data on the cpu
     with tf.device('/CPU:0'):
