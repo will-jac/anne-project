@@ -223,9 +223,9 @@ def execute_exp(args):
     # run the tests
     return test(model)
 
-def save_results(model, results, out_dir):
+def save_results(model, results, out_dir, index):
     # save the output
-    fname = out_dir + '/out.pkl'
+    fname = out_dir + '/out_'+str(index)+'.pkl'
 
     with open(fname, 'wb') as f:
         pkl.dump(results, f)
@@ -241,7 +241,10 @@ if __name__ == "__main__":
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     import sys
-    for arg in sys.argv[1:]:
+
+    index = sys.argv[1]
+
+    for arg in sys.argv[2:]:
         # try:
         print('\nrunning experiment:', arg, '\n')
         if arg in configs:
@@ -249,7 +252,7 @@ if __name__ == "__main__":
             print(config)
             model, results = execute_exp(config)
 
-            save_results(model, results, config['dir'])
+            save_results(model, results, config['dir'], index)
         else:
             print('error:', arg, 'not found')
         # except:

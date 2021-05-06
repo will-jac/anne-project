@@ -180,7 +180,7 @@ class _ModelBase():
         if 'max_unsupervised_weight' in args:
             self.max_unsupervised_weight = args['max_unsupervised_weight']
         if 'num_classes' in args:
-            self.num_classes=args['num_classes']
+            self.num_classes = args['num_classes']
 
         self.lrate = tf.Variable(lrate, trainable=False)
 

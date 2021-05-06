@@ -17,6 +17,13 @@ from sklearn.metrics import roc_curve, plot_roc_curve
 
 from base_models import *
 
+import data.adult as adult
+# turn the labels into a proper matrix
+adult.y = np.reshape(adult.y, (adult.y.shape[0], 1))   
+# one-hot encode the outs
+adult.y = np.eye(2)[adult.y.reshape(-1)]
+print(adult.X.shape, adult.y.shape)
+
 def whiten_norm(x):
     x = x - np.mean(x, axis=(1, 2, 3), keepdims=True)
     x = x / (np.mean(x ** 2, axis=(1, 2, 3), keepdims=True) ** 0.5)
@@ -25,12 +32,6 @@ def whiten_norm(x):
 def adult_test(model, num_label=1300):
 
     with tf.device('/CPU:0'):
-        import data.adult as adult
-        # turn the labels into a proper matrix
-        adult.y = np.reshape(adult.y, (adult.y.shape[0], 1))   
-        # one-hot encode the outs
-        adult.y = np.eye(2)[adult.y.reshape(-1)]
-        print(adult.X.shape, adult.y.shape)
 
         # (label, unlabeled) = util.train_test_valid_split(adult.X, adult.y, split=(u, 1 - u))
 
