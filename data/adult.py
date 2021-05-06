@@ -100,7 +100,7 @@ def cont_trait_vector(data, trait):
         vector[i] = float(vector[i])/rescale
     return vector
 
-# '<=50k' = -1
+# '<=50k' = 0
 # '>50k' = 1
 def make_target(data):
     entry = len(data[0]) - 1
@@ -108,6 +108,7 @@ def make_target(data):
     for i in range(len(data)):
         vector.append(int((-1)**(data[i][entry][0] == '<')))
     y = np.array([vector]).T
+    y = np.where(y == -1, 0, 1)
     return y
 
 #consider n classes

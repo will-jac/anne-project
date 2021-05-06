@@ -485,6 +485,158 @@ def cifar10_model_pretrain(
  
     return model
 
+def mnist_model(
+    do_image_augmentation=True, 
+    noise_stdev=0.15,
+    height_mod = (0.1,0.1), width_mod = (0.1,0.1),
+    dropout=0.5, 
+    l2=0.001,
+    output_activation='softmax'
+):
+    input_layer = model = tf.keras.Input(shape=(28, 28, 1))
+
+    if do_image_augmentation:
+        model = tf.keras.layers.GaussianNoise(noise_stdev)(model)
+        model = tf.keras.layers.experimental.preprocessing.RandomFlip(mode='horizontal')(model)
+        model = tf.keras.layers.experimental.preprocessing.RandomTranslation(height_mod, width_mod, interpolation='nearest')(model)
+
+    for f in [128, 256]:
+        # Add the conv2d layers
+        for _ in range(2):
+            model = tfa.layers.WeightNormalization(
+                tf.keras.layers.Conv2D(
+                    filters=f, 
+                    kernel_size=[3, 3],
+                    padding='same', 
+                    kernel_initializer=tf.keras.initializers.he_uniform(),
+                    bias_initializer=tf.keras.initializers.constant(0.1),
+                    kernel_regularizer=tf.keras.regularizers.l2(l2)
+                ),
+                data_init=False
+            )(model)
+            model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+            # model = tf.keras.layers.BatchNormalization()(model)
+
+        # Add the pooling and dropout
+        model = tf.keras.layers.MaxPool2D(pool_size=(2,2), padding='same')(model)
+        model = tf.keras.layers.Dropout(dropout)(model)
+
+    # Add the final conv2D layers 
+    model = tfa.layers.WeightNormalization(
+        tf.keras.layers.Conv2D(
+            filters=512, 
+            kernel_size=[3, 3],
+            padding='valid', 
+            kernel_initializer=tf.keras.initializers.he_uniform(),
+            bias_initializer=tf.keras.initializers.constant(0.1),
+            kernel_regularizer=tf.keras.regularizers.l2(l2)
+        ),
+        data_init=False
+    )(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+    # model = tf.keras.layers.BatchNormalization()(model)
+
+    model = tfa.layers.WeightNormalization(
+        tf.keras.layers.Conv2D(
+            filters=256, 
+            kernel_size=[1, 1],
+            padding='valid', 
+            kernel_initializer=tf.keras.initializers.he_uniform(),
+            bias_initializer=tf.keras.initializers.constant(0.1),
+            kernel_regularizer=tf.keras.regularizers.l2(l2)
+        ),
+        data_init=False
+    )(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+    # model = tf.keras.layers.BatchNormalization()(model)
+
+    model = tfa.layers.WeightNormalization(
+        tf.keras.layers.Conv2D(
+            filters=128, 
+            kernel_size=[1,1],
+            padding='valid', 
+            kernel_initializer=tf.keras.initializers.he_uniform(),
+            bias_initializer=tf.keras.initializers.constant(0.1),
+            kernel_regularizer=tf.keras.regularizers.l2(l2)
+        ),
+        data_init=False
+    )(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+    # model = tf.keras.layers.BatchNormalization()(model)
+
+    model = tf.keras.layers.AveragePooling2D((5,5))(model)
+
+    model = tf.keras.layers.Flatten()(model)
+
+    # TODO: normalize the output?
+    output_layer = model = tf.keras.layers.Dense(
+        units=10,
+        activation=output_activation,
+        kernel_initializer=tf.keras.initializers.he_uniform(),
+        bias_initializer=tf.keras.initializers.constant(0.1),
+        kernel_regularizer=tf.keras.regularizers.l2(l2)
+    )(model)
+
+    model = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+ 
+    return model
+
+
+def adult_model(
+    do_image_augmentation=True,
+    noise_stdev=0.15,
+    dropout=0.5, 
+    l2=0.001,
+    output_activation='softmax'
+):
+
+    input_layer = model = tf.keras.Input(shape=(54))
+
+    if do_image_augmentation:
+        model = tf.keras.layers.GaussianNoise(noise_stdev)(model)
+
+    model = tfa.layers.WeightNormalization(
+        tf.keras.layers.Dense(
+            1000,
+            kernel_regularizer=tf.keras.regularizers.l2(l2)
+        ),
+        data_init=False
+    )(model)
+    model = tf.keras.layers.Dropout(dropout)(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+
+    model = tfa.layers.WeightNormalization(
+        tf.keras.layers.Dense(
+            100,
+            kernel_regularizer=tf.keras.regularizers.l2(l2)
+        ),
+        data_init=False
+    )(model)
+    model = tf.keras.layers.Dropout(dropout)(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+
+    model = tfa.layers.WeightNormalization(
+        tf.keras.layers.Dense(
+            10,
+            kernel_regularizer=tf.keras.regularizers.l2(l2)
+        ),
+        data_init=False
+    )(model)
+    model = tf.keras.layers.Dropout(dropout)(model)
+    model = tf.keras.layers.LeakyReLU(alpha=0.1)(model)
+
+    # TODO: normalize the output?
+    output_layer = model = tf.keras.layers.Dense(
+        units=2,
+        activation=output_activation,
+        kernel_initializer=tf.keras.initializers.he_uniform(),
+        bias_initializer=tf.keras.initializers.constant(0.1),
+        kernel_regularizer=tf.keras.regularizers.l2(l2)
+    )(model)
+
+    model = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+ 
+    return model
 
 class Supervised():
 

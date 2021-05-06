@@ -9,40 +9,174 @@ import tests
 from types import SimpleNamespace
 
 configs = {
+    'adult_pi' :{
+        'method' : 'pi',
+        'test' : 'adult',
+        'dir' : './results/adult/pi',
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : None,
+        'patience' : 100,
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
+        'num_classes' : 2
+    },
+    'adult_te' : {
+        'method' : 'te',
+        'test' : 'adult',
+        'dir' : './results/adult/te',
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : None,
+        'patience' : 100,
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
+        'num_classes' : 2
+    },
+    'adult_pl' : {
+        'method' : 'pl',
+        'test' : 'adult',
+        'dir' : './results/adult/pl',
+        'lrate' : 0.0001,
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : None,
+        'patience' : 100,   
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
+        'use_dae' : False,
+        'num_classes' : 2
+    },
+
+
+    'mnist_pi' :{
+        'method' : 'pi',
+        'test' : 'mnist',
+        'dir' : './results/mnist/pi',
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : None,
+        'patience' : 100,
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
+        'num_classes' : 10
+    },
+    'mnist_te' : {
+        'method' : 'te',
+        'test' : 'mnist',
+        'dir' : './results/mnist/te',
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : None,
+        'patience' : 100,
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
+        'num_classes' : 10
+    },
+    'mnist_pl' : {
+        'method' : 'pl',
+        'test' : 'mnist',
+        'dir' : './results/mnist/pl',
+        'lrate' : 0.0001,
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : None,
+        'patience' : 100,   
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
+        'use_dae' : False,
+        'num_classes' : 10
+    },
+
+
+    'svhn_pi' :{
+        'method' : 'pi',
+        'test' : 'svhn',
+        'dir' : './results/svhn/pi',
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : None,
+        'patience' : 100,
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
+        'num_classes' : 10
+    },
+    'svhn_te' : {
+        'method' : 'te',
+        'test' : 'svhn',
+        'dir' : './results/svhn/te',
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : None,
+        'patience' : 100,
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
+        'num_classes' : 10
+    },
+    'svhn_pl' : {
+        'method' : 'pl',
+        'test' : 'svhn',
+        'dir' : './results/svhn/pl',
+        'lrate' : 0.0001,
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : None,
+        'patience' : 100,   
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
+        'use_dae' : False,
+        'num_classes' : 10
+    },
+
     'cifar10pi' :{
         'method' : 'pi',
         'test' : 'cifar10_experimental',
         'dir' : './results/cifar10/pi',
-        'epochs' : 1000,
-        'batch_size' : 200,
-        'min_labeled_per_epoch' : None,
-        'patience' : 1000,
-        'steps_per_epoch' : 10,
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : 100,
+        'patience' : 100,
+        'steps_per_minibatch' : 1,
         'use_image_augmentation' : True,
+        'num_classes' : 10
     },
     'cifar10te' : {
         'method' : 'te',
         'test' : 'cifar10_experimental',
         'dir' : './results/cifar10/te',
-        'epochs' : 1000,
-        'batch_size' : 200,
-        'min_labeled_per_epoch' : None,
-        'patience' : 1000,
-        'steps_per_epoch' : 10,
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : 100,
+        'patience' : 100,
+        'steps_per_minibatch' : 1,
         'use_image_augmentation' : True,
+        'num_classes' : 10
     },
     'cifar10pl' : {
         'method' : 'pl',
         'test' : 'cifar10_experimental',
         'dir' : './results/cifar10/pl',
         'lrate' : 0.0001,
-        'epochs' : 1000,
-        'batch_size' : 200,
-        'min_labeled_per_epoch' : None,
-        'patience' : 1000,   
-        'steps_per_epoch' : 10,
-        'use_image_augmentation' : False,
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : 100,
+        'patience' : 100,   
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
         'use_dae' : False,
+        'num_classes' : 10
     },
     # not working, and honestly, I don't want to put the work in to make it work
     'cifar10pl_pretrain' : {
@@ -67,24 +201,23 @@ configs = {
         'patience' : 500,
         'steps_per_epoch' : 10,
         'use_image_augmentation' : True,
+        'num_classes' : 10
     }
 }
 
-def execute_exp(run_config):
+def execute_exp(args):
 
-    args = SimpleNamespace(**run_config)
-
-    if args.test in tests.tests:
-        base_model, test = tests.tests[args.test]
+    if args['test'] in tests.tests:
+        base_model, test = tests.tests[args['test']]
     else:
-        print('error: test', args.test, 'not found')
+        print('error: test', args['test'], 'not found')
         return
 
-    if args.method in models.models:
+    if args['method'] in models.models:
         # construct the model
-        model = models.models[args.method](base_model, args)
+        model = models.models[args['method']](base_model, args)
     else:
-        print('error: model', args.method, 'not found') 
+        print('error: model', args['method'], 'not found') 
         return
 
     # run the tests
@@ -109,6 +242,7 @@ if __name__ == "__main__":
 
     import sys
     for arg in sys.argv[1:]:
+        # try:
         print('\nrunning experiment:', arg, '\n')
         if arg in configs:
             config = configs[arg]
@@ -117,6 +251,8 @@ if __name__ == "__main__":
 
             save_results(model, results, config['dir'])
         else:
-            print('error:', sys.argv[1], 'not found')
+            print('error:', arg, 'not found')
+        # except:
+        #     print('some error occured')
         
         print('\n')
