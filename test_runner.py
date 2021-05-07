@@ -47,6 +47,21 @@ configs = {
         'patience' : 100,   
         'steps_per_minibatch' : 1,
         'use_image_augmentation' : True,
+        'use_dae' : True,
+        'num_classes' : 2
+    },
+    'adult_s' : {
+        'method' : 'supervised',
+        'test' : 'adult',
+        'dir' : './results/adult/s',
+        'lrate' : 0.0001,
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : None,
+        'patience' : 100,   
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
         'use_dae' : False,
         'num_classes' : 2
     },
@@ -93,7 +108,21 @@ configs = {
         'use_dae' : False,
         'num_classes' : 10
     },
-
+    'mnist_s' : {
+        'method' : 'supervised',
+        'test' : 'mnist',
+        'dir' : './results/mnist/s',
+        'lrate' : 0.0001,
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : None,
+        'patience' : 100,   
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
+        'use_dae' : False,
+        'num_classes' : 2
+    },
 
     'svhn_pi' :{
         'method' : 'pi',
@@ -136,6 +165,21 @@ configs = {
         'use_dae' : False,
         'num_classes' : 10
     },
+    'svhn_s' : {
+        'method' : 'supervised',
+        'test' : 'svhn',
+        'dir' : './results/svhn/s',
+        'lrate' : 0.0001,
+        'epochs' : 500,
+        'minibatch_size' : 200,
+        'minibatches_per_epoch' : 100,
+        'min_labeled_per_minibatch' : None,
+        'patience' : 100,   
+        'steps_per_minibatch' : 1,
+        'use_image_augmentation' : True,
+        'use_dae' : False,
+        'num_classes' : 2
+    },
 
     'cifar10pi' :{
         'method' : 'pi',
@@ -177,19 +221,6 @@ configs = {
         'use_image_augmentation' : True,
         'use_dae' : False,
         'num_classes' : 10
-    },
-    # not working, and honestly, I don't want to put the work in to make it work
-    'cifar10pl_pretrain' : {
-        'method' : 'pl',
-        'test' : 'cifar10_experimental_pretrain',
-        'dir' : './results/cifar10/pl',
-        'lrate' : 0.00001,
-        'epochs' : 1000,
-        'batch_size' : 300,
-        'patience' : 100,
-        'steps_per_epoch' : 10,
-        'use_image_augmentation' : False,
-        'use_dae' : True,
     },
     'cifar10supervised' : {
         'method' : 'supervised',
